@@ -15,15 +15,14 @@ export ZSH="$HOME/.oh-my-zsh"
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="robbyrussell"
+# ZSH_THEME="robbyrussell"
+ZSH_THEME="powerlevel10k/powerlevel10k"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
 # a theme from this variable instead of looking in $ZSH/themes/
 # If set to an empty array, this variable will have no effect.
 # ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
-
-ZSH_THEME="powerlevel10k/powerlevel10k"
 
 # Uncomment the following line to use case-sensitive completion.
 # CASE_SENSITIVE="true"
@@ -79,7 +78,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting zshmarks tmux virtualenv)
+plugins=(git colored-man-pages colorize zsh-syntax-highlighting zsh-autosuggestions git-prompt jenv sdk)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -112,7 +111,8 @@ source $ZSH/oh-my-zsh.sh
 alias zshconf="vim ~/.zshrc"
 alias ohmyzsh="vim ~/.oh-my-zsh"
 alias tmux='tmux -u'
-alias vi="vim"
+alias vi="nvim"
+alias vim="nvim"
 alias cl="clear"
 alias opengc="nohup google-chrome &"
 alias opengcws="nohup google-chrome --disable-web-security --user-data-dir=\"/home/puneet/.config/google-chrome/Profile 1\" &"
@@ -138,25 +138,50 @@ alias snc="pulseaudio -k && pulseaudio --start"
 # alias for pycharm
 alias charm="/mnt/c/Users/punee/AppData/Local/JetBrains/Toolbox/apps/PyCharm-C/ch-0/213.5744.248/bin/pycharm64.exe"
 
+alias vi="nvim"
+
+# alias for react-native-debugger
+openrndebugger() {
+        if [ $1 != "" ]
+        then
+                open "rndebugger://set-debugger-loc?host=localhost&port=$1"
+        else
+                open "rndebugger://set-debugger-loc?host=localhost&port=8081"
+        fi
+}
+
 function mkcd {
   command mkdir $1 && cd $1
 }
 
-# Virtual env wrapper
-VIRTUALENVWRAPPER_PYTHON=$(which python3)
+# Utilities for fuzzy finder
+# fd - cd to selected directory
+fd() {
+  local dir
+  dir=$(find ${1:-.} -path '*/\.*' -prune \
+                  -o -type d -print 2> /dev/null | fzf +m) &&
+  cd "$dir"
+}
 
-# Virtual env
-export WORKON_HOME=~/.venvs
-source ~/.local/bin/virtualenvwrapper.sh
-export PIP_VIRTUALENV_BASE=~/.venvs
+# fh - search in your command history and execute selected command
+fh() {
+  eval $( ([ -n "$ZSH_NAME" ] && fc -l 1 || history) | fzf +s --tac | sed 's/ *[0-9]* *//')
+}
+
+eval "$(pyenv init -)"
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+# nvm config
+export NVM_DIR=~/.nvm
+source $(brew --prefix nvm)/nvm.sh
 
-export PATH="$PATH:$(yarn global bin)"
+# Android Paths
+export ANDROID_SDK_ROOT=$HOME/Library/Android/sdk
+export PATH=$PATH:$ANDROID_SDK_ROOT/emulator
+export PATH=$PATH:$ANDROID_SDK_ROOT/platform-tools
 
-export TERM=xterm-256color
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
