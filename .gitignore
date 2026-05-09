@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor swap files
+*.swp
+*.swo
+*.bak
+*~
+
+# Local-only state that shouldn't sync between machines
+.dotfiles-backup/

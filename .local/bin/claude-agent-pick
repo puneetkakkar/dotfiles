@@ -1,0 +1,77 @@
+#!/bin/bash
+# claude-agent-pick — fuzzy picker for spawning a Claude agent on a branch.
+#
+# Lists existing local + remote branches sorted by recency, deduped. Runs fzf
+# with --print-query so the user can either fuzzy-match an existing branch or
+# type a brand-new label and press Enter to create it.
+#
+# Bound to tmux `prefix A` via display-popup.
+
+set -e
+
+cwd="${1:-$PWD}"
+
+# Step 1 — find a repo. If the current pane is inside one, use it.
+# Otherwise, fzf-pick from ~/recovry/repos/*.
+repo_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)
+
+if [ -z "$repo_root" ]; then
+  repo_dirs=$(find "$HOME/recovry/repos" -maxdepth 2 -name ".git" -type d 2>/dev/null \
+    | sed 's@/.git$@@' \
+    | sort)
+  if [ -z "$repo_dirs" ]; then
+    echo "No git repos found under ~/recovry/repos/."
+    read -r -n 1 -p "Press any key to close. "
+    exit 1
+  fi
+  repo_root=$(printf '%s\n' "$repo_dirs" \
+    | fzf --prompt="repo ▸ " \
+          --height=100% \
+          --reverse \
+          --header="↵ to pick a repo, then choose a branch" \
+          --header-first 2>/dev/null) || exit 0
+  if [ -z "$repo_root" ]; then
+    exit 0
+  fi
+fi
+
+# Build candidate list: most-recent-first, dedup local vs remote, drop noise.
+candidates=$(
+  git -C "$repo_root" for-each-ref \
+    --sort=-committerdate \
+    --format='%(refname:short)' \
+    refs/heads/ refs/remotes/origin/ 2>/dev/null \
+    | grep -v '^origin/HEAD$' \
+    | sed 's@^origin/@@' \
+    | awk '!seen[$0]++'
+)
+
+if [ -z "$candidates" ]; then
+  echo "(no branches found — type a label below)"
+fi
+
+# fzf:
+#   --print-query  → first line of output is the query (typed input).
+#                    Subsequent lines are matches. If user accepts a match,
+#                    line 2 is the selection. If user types something with no
+#                    match and hits Enter, line 2 is empty and we use the query.
+selection=$(printf '%s\n' "$candidates" | fzf \
+  --prompt="agent ▸ " \
+  --height=100% \
+  --reverse \
+  --print-query \
+  --header="↵ resume on selected · or type a new label and ↵" \
+  --header-first 2>/dev/null) || exit 0
+
+query=$(printf '%s\n' "$selection" | sed -n '1p')
+match=$(printf '%s\n' "$selection" | sed -n '2p')
+
+label="${match:-$query}"
+if [ -z "$label" ]; then
+  exit 0
+fi
+
+# Output: <repo_root>|<label>. Read by claude-agent-launcher; the launcher
+# (running outside the popup) is what actually invokes claude-agent so that
+# tmux switch-client propagates to the correct client.
+printf '%s|%s\n' "$repo_root" "$label"

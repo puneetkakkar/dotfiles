@@ -1,0 +1,38 @@
+#!/bin/bash
+# claude-agent-launcher — bridges tmux's `prefix A` binding and the picker.
+#
+# Why this exists: running `tmux switch-client` from *inside* `display-popup`
+# can fail to propagate to the outer client. So the picker writes its choice
+# to a temp file, the popup closes, and THIS script (running in the outer
+# client's context via run-shell) then invokes claude-agent which switches
+# the actual client cleanly.
+
+set -e
+
+cwd="${1:-$PWD}"
+
+tmpfile=$(mktemp -t claude-agent-pick.XXXXXX)
+errfile="${tmpfile}.err"
+trap 'rm -f "$tmpfile" "$errfile"' EXIT
+
+# Run the picker inside a popup. The popup blocks until fzf exits.
+tmux display-popup -E -w 75% -h 70% -d "$cwd" \
+  "$HOME/.local/bin/claude-agent-pick \"$cwd\" > \"$tmpfile\" 2> \"$errfile\"" || true
+
+# If user cancelled (no output), bail silently.
+if [ ! -s "$tmpfile" ]; then
+  # If there were errors, surface them via tmux display-message
+  if [ -s "$errfile" ]; then
+    err_summary=$(head -3 "$errfile" | tr '\n' ' ')
+    tmux display-message -d 4000 "claude-agent-pick error: $err_summary"
+  fi
+  exit 0
+fi
+
+# Picker writes "<repo_root>|<label>" on a single line.
+IFS='|' read -r repo_root label < "$tmpfile"
+if [ -z "$repo_root" ] || [ -z "$label" ]; then
+  exit 0
+fi
+
+exec "$HOME/.local/bin/claude-agent" "$label" "$repo_root"

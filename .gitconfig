@@ -1,0 +1,12 @@
+[core]
+	pager = diff-so-fancy | less --tabs=4 -RF
+[interactive]
+	diffFilter = diff-so-fancy --patch
+[gpg]
+	format = ssh
+[user]
+	signingkey = /Users/puneetkakkar/.ssh/id_ed25519.pub
+[commit]
+	gpgsign = true
+[gpg "ssh"]
+	allowedSignersFile = /Users/puneetkakkar/.ssh/allowed_signers

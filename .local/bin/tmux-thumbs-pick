@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# tmux-thumbs-pick: capture the calling pane, run thumbs in a fullscreen
+# popup, copy the picked token to the macOS clipboard.
+#
+# Invoked from tmux.conf:  bind-key y run-shell "$HOME/.local/bin/tmux-thumbs-pick #{pane_id}"
+set -uo pipefail
+
+# Absolute path — tmux's display-popup runs via a non-interactive shell that
+# does NOT source ~/.zshrc, so ~/.local/bin is absent from PATH and `thumbs`
+# would otherwise fail with exit code 127.
+THUMBS_BIN="$HOME/.local/bin/thumbs"
+
+PANE="${1:?pane_id required}"
+CAPTURE=$(mktemp -t thumbs-cap)
+RESULT=$(mktemp -t thumbs-res)
+trap 'rm -f "$CAPTURE" "$RESULT"' EXIT
+
+# -J joins wrapped lines, -p prints to stdout, -e preserves ANSI so thumbs
+# can hint colored output too.
+tmux capture-pane -J -p -e -t "$PANE" > "$CAPTURE"
+
+# display-popup -E runs the command with a real TTY and closes on exit.
+# 100%/100% so hint positions match the source layout 1:1.
+# `-c` adds [brackets] around hints so they're readable against any bg.
+# `-t <file>` writes the picked hint to the file — DO NOT use `> $RESULT`,
+# because thumbs queries terminal size via ioctl on stdout, and a redirected
+# stdout panics with "Inappropriate ioctl for device" (v0.8.0 quirk).
+# Esc in thumbs exits non-zero; we deliberately don't `set -e` so the
+# clipboard-write step still runs (and gracefully skips on empty result).
+tmux display-popup -E -w 100% -h 100% \
+  "'$THUMBS_BIN' -c -t '$RESULT' < '$CAPTURE'"
+
+if [ -s "$RESULT" ]; then
+  tr -d '\n' < "$RESULT" | pbcopy
+  preview=$(tr -d '\n' < "$RESULT" | cut -c1-50)
+  tmux display-message -d 1500 "thumbs → clipboard: $preview"
+fi

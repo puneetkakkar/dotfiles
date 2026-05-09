@@ -1,187 +1,218 @@
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
-# Initialization code that may require console input (password prompts, [y/n]
-# confirmations, etc.) must go above this block; everything else may go below.
+# =============================================================================
+# ~/.zshrc — Puneet Kakkar
+#
+# Sections (in order):
+#   1.  Powerlevel10k instant prompt  (must stay at top)
+#   2.  Editor & locale
+#   3.  History
+#   4.  Oh My Zsh
+#   5.  Theme & shell plugins
+#   6.  Language version managers (pyenv, nvm, pnpm)
+#   7.  Tool integrations (zoxide, terraform, dart)
+#   8.  PATH (Android SDK, local bin)
+#   9.  Aliases
+#  10.  Functions
+#  11.  Key bindings
+#  12.  Optional integrations (fzf if installed)
+#  13.  SDKMAN  (MUST be last per its docs)
+# =============================================================================
+
+
+# ─── 1. Powerlevel10k instant prompt ────────────────────────────────────────
+# Initialization that needs console input (passwords, prompts) must go above.
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
-# If you come from bash you might have to change your $PATH.
-# export PATH=$HOME/bin:/usr/local/bin:$PATH
 
-# Path to your oh-my-zsh installation.
+# ─── 2. Editor & locale ─────────────────────────────────────────────────────
+export EDITOR="cursor --wait"
+export VISUAL="$EDITOR"
+export LANG=en_US.UTF-8
+
+
+# ─── 3. History ─────────────────────────────────────────────────────────────
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=100000
+SAVEHIST=100000
+setopt EXTENDED_HISTORY        # timestamp + duration in history
+setopt SHARE_HISTORY           # share across all sessions
+setopt INC_APPEND_HISTORY      # write immediately, not on shell exit
+setopt HIST_IGNORE_ALL_DUPS    # remove older duplicates
+setopt HIST_IGNORE_SPACE       # ` cmd` (leading space) → not recorded
+setopt HIST_REDUCE_BLANKS      # strip extra whitespace before saving
+setopt HIST_VERIFY             # !! shows command before running
+setopt HIST_FIND_NO_DUPS       # skip dups when searching
+
+
+# ─── 4. Oh My Zsh ───────────────────────────────────────────────────────────
 export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="robbyrussell"   # overridden below by powerlevel10k
 
-# Set name of the theme to load --- if set to "random", it will
-# load a random theme each time oh-my-zsh is loaded, in which case,
-# to know which specific one was loaded, run: echo $RANDOM_THEME
-# See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-# ZSH_THEME="robbyrussell"
-ZSH_THEME="powerlevel10k/powerlevel10k"
+# Plugins — each adds aliases/completions. Keep the list lean: too many
+# plugins slow shell startup. See $ZSH/plugins/<name>/<name>.plugin.zsh
+plugins=(
+  git                  # gst, gco, gcb, gp, gd, gl, glo, ...
+  gh                   # GitHub CLI completion
+  docker               # docker completion
+  docker-compose       # dco completion
+  kubectl              # k=kubectl, kgp=get pods, kgs=get services, ...
+  npm                  # npm completion
+  brew                 # brew completion
+  command-not-found    # suggests Homebrew install when command not found
+  colored-man-pages    # readable man pages
+  extract              # `extract file.tar.gz` works for any archive type
+)
 
-# Set list of themes to pick from when loading at random
-# Setting this variable when ZSH_THEME=random will cause zsh to load
-# a theme from this variable instead of looking in $ZSH/themes/
-# If set to an empty array, this variable will have no effect.
-# ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
+source "$ZSH/oh-my-zsh.sh"
 
-# Uncomment the following line to use case-sensitive completion.
-# CASE_SENSITIVE="true"
 
-# Uncomment the following line to use hyphen-insensitive completion.
-# Case-sensitive completion must be off. _ and - will be interchangeable.
-# HYPHEN_INSENSITIVE="true"
+# ─── 5. Theme & shell plugins ───────────────────────────────────────────────
+source /opt/homebrew/share/powerlevel10k/powerlevel10k.zsh-theme
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
 
-# Uncomment one of the following lines to change the auto-update behavior
-# zstyle ':omz:update' mode disabled  # disable automatic updates
-# zstyle ':omz:update' mode auto      # update automatically without asking
-# zstyle ':omz:update' mode reminder  # just remind me to update when it's time
+source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-# Uncomment the following line to change how often to auto-update (in days).
-# zstyle ':omz:update' frequency 13
 
-# Uncomment the following line if pasting URLs and other text is messed up.
-# DISABLE_MAGIC_FUNCTIONS="true"
+# ─── 6. Language version managers ───────────────────────────────────────────
+# pyenv
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init - zsh)"
 
-# Uncomment the following line to disable colors in ls.
-# DISABLE_LS_COLORS="true"
+# nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
-# Uncomment the following line to disable auto-setting terminal title.
-# DISABLE_AUTO_TITLE="true"
+# pnpm
+export PNPM_HOME="$HOME/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
 
-# Uncomment the following line to enable command auto-correction.
-# ENABLE_CORRECTION="true"
 
-# Uncomment the following line to display red dots whilst waiting for completion.
-# You can also set it to another string to have that shown instead of the default red dots.
-# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
-# Caution: this setting can cause issues with multiline prompts in zsh < 5.7.1 (see #5765)
-# COMPLETION_WAITING_DOTS="true"
+# ─── 7. Tool integrations ───────────────────────────────────────────────────
+# zoxide — smart cd: `z foo` jumps to the most-frecent dir matching foo.
+#   `zi` opens fzf-style picker (only when fzf is installed).
+eval "$(zoxide init zsh)"
 
-# Uncomment the following line if you want to disable marking untracked files
-# under VCS as dirty. This makes repository status check for large repositories
-# much, much faster.
-# DISABLE_UNTRACKED_FILES_DIRTY="true"
+# direnv — auto-load .envrc per directory (run `direnv allow` to approve a new one)
+eval "$(direnv hook zsh)"
 
-# Uncomment the following line if you want to change the command execution time
-# stamp shown in the history command output.
-# You can set one of the optional three formats:
-# "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
-# or set a custom format using the strftime function format specifications,
-# see 'man strftime' for details.
-# HIST_STAMPS="mm/dd/yyyy"
+# terraform completion
+autoload -U +X bashcompinit && bashcompinit
+complete -o nospace -C /opt/homebrew/bin/terraform terraform
 
-# Would you like to use another custom folder than $ZSH/custom?
-# ZSH_CUSTOM=/path/to/new-custom-folder
+# dart CLI completion
+[[ -f $HOME/.dart-cli-completion/zsh-config.zsh ]] && . $HOME/.dart-cli-completion/zsh-config.zsh
 
-# Which plugins would you like to load?
-# Standard plugins can be found in $ZSH/plugins/
-# Custom plugins may be added to $ZSH_CUSTOM/plugins/
-# Example format: plugins=(rails git textmate ruby lighthouse)
-# Add wisely, as too many plugins slow down shell startup.
-plugins=(git colored-man-pages colorize zsh-syntax-highlighting zsh-autosuggestions git-prompt jenv sdk)
 
-source $ZSH/oh-my-zsh.sh
+# ─── 8. PATH ────────────────────────────────────────────────────────────────
+# Android SDK
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PATH="$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator"
+# Local bin
+export PATH="$HOME/.local/bin:$PATH"
 
-# User configuration
 
-# export MANPATH="/usr/local/man:$MANPATH"
+# ─── 9. Aliases ─────────────────────────────────────────────────────────────
+# --- modern CLI replacements ---
+alias cat='bat --paging=never'
+alias ls='eza --header --group --git --long'
+alias ls.tree='eza --header --group --tree --level=2 --git --long --icons'
+alias ll='eza --header --group --long --all'
+alias ll.tree='eza --header --group --tree --level=2 --git --long --icons --all'
+alias top='btop'
 
-# You may need to manually set your language environment
-# export LANG=en_US.UTF-8
+# --- navigation ---
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias .....='cd ../../../..'
+alias -- -='cd -'                   # cd to previous directory
 
-# Preferred editor for local and remote sessions
-# if [[ -n $SSH_CONNECTION ]]; then
-#   export EDITOR='vim'
-# else
-#   export EDITOR='mvim'
-# fi
+# --- git (omz git plugin gives most; these are extra favorites) ---
+alias glog='git log --oneline --graph --decorate --all'
+alias gwip='git add -A && git commit -m "wip"'
+alias gundo='git reset --soft HEAD~1'           # undo last commit, keep changes staged
+alias gsync='git fetch --all --prune && git pull --rebase'
+alias lg='lazygit'                              # TUI git: stage hunks, rebase, etc.
 
-# Compilation flags
-# export ARCHFLAGS="-arch x86_64"
+# --- docker / k8s ---
+alias dps='docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
+alias dprune='docker system prune -af --volumes'
+alias kx='kubectx'                              # switch k8s context (cluster)
+alias kn='kubens'                               # switch k8s namespace
 
-# Set personal aliases, overriding those provided by oh-my-zsh libs,
-# plugins, and themes. Aliases can be placed here, though oh-my-zsh
-# users are encouraged to define aliases within the ZSH_CUSTOM folder.
-# For a full list of active aliases, run `alias`.
-#
-# Example aliases
-# alias zshconfig="mate ~/.zshrc"
-# alias ohmyzsh="mate ~/.oh-my-zsh"
+# --- claude code ---
+alias c='claude'
+alias cr='claude --resume'                        # resume last session
+alias cc='claude --continue'                      # continue most recent
 
-alias zshconf="vim ~/.zshrc"
-alias ohmyzsh="vim ~/.oh-my-zsh"
-alias tmux='tmux -u'
-alias vi="nvim"
-alias vim="nvim"
-alias cl="clear"
-alias opengc="nohup google-chrome &"
-alias opengcws="nohup google-chrome --disable-web-security --user-data-dir=\"/home/puneet/.config/google-chrome/Profile 1\" &"
-alias fopen="xdg-open"
-alias -g G='| grep -i'
+# --- general / global ---
+alias -g G='| grep -i'                            # `cmd G pattern` → cmd | grep -i pattern
+alias -g L='| less'
+alias -g J='| jq'
+alias -g H='| head'
+alias -g T='| tail'
+alias cl='clear'
+alias reload='source ~/.zshrc'
+alias zshconfig='cursor ~/.zshrc'
+alias myip='curl -s https://ipinfo.io/ip; echo'
 
-# alias for git
-alias gitro="git fetch origin && git reset --hard origin/master && git clean -f -d"
 
-# aliases for pbcopy
-alias pbcopy='xclip -selection clipboard'
-alias pbpaste='xclip -selection clipboard -o'
+# ─── 10. Functions ──────────────────────────────────────────────────────────
+# mkcd — create directory and cd into it
+mkcd() { mkdir -p "$1" && cd "$1"; }
 
-#Aliases For ZSH-Bookmarks
-alias jbm="jump"
-alias sbm="bookmark"
-alias dbm="deletemark"
-alias lbm="showmarks"
+# clonecd — git clone and cd into the new directory
+# (named to avoid colliding with omz git's `gcl` = `git clone --recurse-submodules`)
+clonecd() { git clone "$1" && cd "$(basename "$1" .git)"; }
 
-# alias to start noise-cancelling
-alias snc="pulseaudio -k && pulseaudio --start"
+# bbk — back up a file as file.bak.YYYYMMDD
+bbk() { cp "$1" "$1.bak.$(date +%Y%m%d)"; }
 
-# alias for pycharm
-alias charm="/mnt/c/Users/punee/AppData/Local/JetBrains/Toolbox/apps/PyCharm-C/ch-0/213.5744.248/bin/pycharm64.exe"
+# port — show what's listening on a port: `port 3000`
+port() { lsof -nP -iTCP:"$1" -sTCP:LISTEN; }
 
-alias vi="nvim"
 
-# alias for react-native-debugger
-openrndebugger() {
-        if [ $1 != "" ]
-        then
-                open "rndebugger://set-debugger-loc?host=localhost&port=$1"
-        else
-                open "rndebugger://set-debugger-loc?host=localhost&port=8081"
-        fi
-}
+# ─── 11. Key bindings ───────────────────────────────────────────────────────
+bindkey -e   # emacs mode (also default; explicit for clarity)
 
-function mkcd {
-  command mkdir $1 && cd $1
-}
+# ↑ / ↓  — history search using whatever you've already typed as a prefix.
+#         Type `git ` then ↑ to walk through past `git ...` commands only.
+autoload -U up-line-or-beginning-search down-line-or-beginning-search
+zle -N up-line-or-beginning-search
+zle -N down-line-or-beginning-search
+bindkey '^[[A' up-line-or-beginning-search
+bindkey '^[[B' down-line-or-beginning-search
 
-# Utilities for fuzzy finder
-# fd - cd to selected directory
-fd() {
-  local dir
-  dir=$(find ${1:-.} -path '*/\.*' -prune \
-                  -o -type d -print 2> /dev/null | fzf +m) &&
-  cd "$dir"
-}
+# Ctrl+X Ctrl+E — open the current command line in $EDITOR; save+quit runs it.
+#                Useful for editing long multi-line commands.
+autoload -U edit-command-line
+zle -N edit-command-line
+bindkey '^X^E' edit-command-line
 
-# fh - search in your command history and execute selected command
-fh() {
-  eval $( ([ -n "$ZSH_NAME" ] && fc -l 1 || history) | fzf +s --tac | sed 's/ *[0-9]* *//')
-}
+# Alt+. — paste the last argument of the previous command (default, kept explicit)
+bindkey '\e.' insert-last-word
 
-eval "$(pyenv init -)"
 
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+# ─── 12. Optional integrations (auto-load when installed) ───────────────────
+# fzf — fuzzy finder. Install with:
+#   brew install fzf && $(brew --prefix)/opt/fzf/install
+# When installed, gives Ctrl+R fuzzy history, Ctrl+T fuzzy file picker,
+# Alt+C fuzzy directory cd. zoxide's `zi` also activates with fzf.
+[[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
 
-# nvm config
-export NVM_DIR=~/.nvm
-source $(brew --prefix nvm)/nvm.sh
 
-# Android Paths
-export ANDROID_SDK_ROOT=$HOME/Library/Android/sdk
-export PATH=$PATH:$ANDROID_SDK_ROOT/emulator
-export PATH=$PATH:$ANDROID_SDK_ROOT/platform-tools
-
-#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+# ─── 13. SDKMAN (MUST be last) ──────────────────────────────────────────────
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# JAVA_HOME tracks SDKMAN's current Java (for Flutter Doctor and Android builds)
+export JAVA_HOME="$HOME/.sdkman/candidates/java/current"
+export PATH="$JAVA_HOME/bin:$PATH"
+alias cheat='bat ~/shell-cheatsheet.md'

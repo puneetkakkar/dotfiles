@@ -1,0 +1,165 @@
+#!/bin/bash
+# claude-agent <label> [cwd-or-repo-path]
+#
+# Spawns a worktree + tmux window for the given label, with `claude` running
+# in the top pane. Bound to `prefix A` via the fzf picker (claude-agent-pick).
+#
+# Behaviour:
+#   1. Passive auto-cleanup: fetch+prune in background, remove worktrees whose
+#      branches have a [gone] upstream tracker (i.e. PR merged + origin branch
+#      deleted) AND have no uncommitted changes. Main checkout is never touched.
+#      Branches with zero commits ahead of master are NOT considered merged —
+#      that would catch unstarted scratch worktrees by mistake.
+#   2. Smart resume: if a branch matching <label> exists locally or on origin,
+#      use it. If only on origin, create a tracking local branch.
+#   3. Fresh fallback: if no match, create a new branch named <label-lowercased>
+#      from origin/master.
+#   4. Idempotency: if the worktree already exists, skip creation. If the tmux
+#      window already exists, skip pane setup — just switch to it.
+
+set -e
+
+label="${1:?usage: claude-agent <label> [cwd]}"
+cwd="${2:-$PWD}"
+
+repo_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)
+if [ -z "$repo_root" ]; then
+  echo "claude-agent: not inside a git repo (cwd=$cwd)" >&2
+  exit 1
+fi
+repo=$(basename "$repo_root")
+
+# ---- Auto-cleanup of stale worktrees -----------------------------------------
+auto_cleanup() {
+  local rr="$1"
+  # Fetch+prune in background — don't block spawn on network. Next invocation
+  # benefits from this fetch.
+  ( git -C "$rr" fetch --prune origin --quiet 2>/dev/null || true ) &
+
+  # Iterate existing worktrees with branch info
+  git -C "$rr" worktree list --porcelain 2>/dev/null | awk '
+    /^worktree/ { wt = $2 }
+    /^branch refs\/heads\// {
+      sub("^branch refs/heads/", "")
+      print wt "\t" $0
+    }
+  ' | while IFS=$'\t' read -r wt branch; do
+    [ "$wt" = "$rr" ] && continue                                      # never touch main checkout
+    [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && continue # uncommitted work — keep
+
+    upstream_track=$(git -C "$rr" for-each-ref --format='%(upstream:track)' "refs/heads/$branch" 2>/dev/null)
+    if [ "$upstream_track" = "[gone]" ]; then
+      git -C "$rr" worktree remove "$wt" --force 2>/dev/null && \
+        git -C "$rr" branch -D "$branch" 2>/dev/null && \
+        echo "claude-agent: cleaned up merged worktree '$branch'"
+    fi
+  done
+}
+auto_cleanup "$repo_root"
+
+# ---- Resolve label → branch + creation strategy ------------------------------
+# Sets RESOLVED_BRANCH and RESOLVED_STATUS as globals (no subshell, so parent
+# scope sees them). Status:
+#   0 = exact local match (use as-is)
+#   1 = no match (create new branch from origin/master)
+#   2 = exists on origin only (create local tracking branch)
+RESOLVED_BRANCH=
+RESOLVED_STATUS=
+resolve_branch() {
+  local rr="$1" lbl="$2"
+  local lower matched
+  lower=$(printf '%s' "$lbl" | tr '[:upper:]' '[:lower:]')
+
+  # Local branches first. Compare case-sensitively in awk to bypass macOS APFS
+  # case-insensitive ref resolution (git rev-parse would lie on case here).
+  matched=$(git -C "$rr" for-each-ref --format='%(refname:short)' refs/heads/ 2>/dev/null \
+    | awk -v exact="$lbl" -v lower="$lower" '$0 == exact || $0 == lower { print; exit }')
+  if [ -n "$matched" ]; then
+    RESOLVED_STATUS=0; RESOLVED_BRANCH="$matched"; return
+  fi
+
+  # Remote branches.
+  matched=$(git -C "$rr" for-each-ref --format='%(refname:short)' refs/remotes/origin/ 2>/dev/null \
+    | sed 's@^origin/@@' \
+    | awk -v exact="$lbl" -v lower="$lower" '$0 == exact || $0 == lower { print; exit }')
+  if [ -n "$matched" ]; then
+    RESOLVED_STATUS=2; RESOLVED_BRANCH="$matched"; return
+  fi
+
+  # Nothing — create new (lowercased to match repo conventions).
+  RESOLVED_STATUS=1; RESOLVED_BRANCH="$lower"
+}
+
+resolve_branch "$repo_root" "$label"
+branch="$RESOLVED_BRANCH"
+status="$RESOLVED_STATUS"
+
+# ---- Worktree setup ---------------------------------------------------------
+worktree_root="$HOME/recovry/worktrees/$repo"
+worktree="$worktree_root/$label"
+
+# If the resolved branch is already checked out somewhere, redirect to that
+# location instead of trying to create a duplicate worktree (git would reject,
+# and on case-insensitive APFS we'd shadow the existing dir).
+existing_wt=$(git -C "$repo_root" worktree list --porcelain 2>/dev/null | awk -v b="$branch" '
+  /^worktree/ { wt = $2 }
+  /^branch refs\/heads\// {
+    sub("^branch refs/heads/", "")
+    if ($0 == b) { print wt; exit }
+  }
+')
+
+if [ -n "$existing_wt" ]; then
+  # Branch is checked out somewhere — reuse that location instead of trying
+  # to make a duplicate worktree (git rejects, APFS shadows the dir).
+  worktree="$existing_wt"
+  if [ "$existing_wt" = "$repo_root" ]; then
+    # Main checkout. Use the branch name as the tmux window label (so picking
+    # the main branch via the picker just opens a claude-agent window pointed
+    # at the main repo — no second worktree needed).
+    label="$branch"
+  else
+    # Different worktree — canonicalize label to its dir name so tmux window
+    # naming matches what's already there (idempotent across casings).
+    label=$(basename "$existing_wt")
+  fi
+fi
+
+mkdir -p "$worktree_root"
+
+if [ ! -d "$worktree" ]; then
+  case "$status" in
+    0) git -C "$repo_root" worktree add "$worktree" "$branch" ;;
+    1) git -C "$repo_root" fetch origin master --quiet 2>/dev/null || true
+       git -C "$repo_root" worktree add -b "$branch" "$worktree" origin/master ;;
+    2) git -C "$repo_root" worktree add --track -b "$branch" "$worktree" "origin/$branch" ;;
+    *) echo "claude-agent: internal error — unresolved status '$status' for label '$label'" >&2
+       exit 1 ;;
+  esac
+fi
+
+# ---- Tmux session/window ----------------------------------------------------
+window=$(printf '%s' "$label" | sed -E 's/^(rec|REC)-/r/' | cut -c1-24)
+
+setup_panes() {
+  local target="$1" wt="$2"
+  tmux split-window -t "$target" -v -p 30 -c "$wt"
+  tmux split-window -t "${target}".1 -h -c "$wt"
+  tmux select-pane -t "${target}".0
+  tmux send-keys -t "${target}".0 "claude" Enter
+}
+
+if ! tmux has-session -t "$repo" 2>/dev/null; then
+  tmux new-session -d -s "$repo" -n "$window" -c "$worktree"
+  setup_panes "$repo:$window" "$worktree"
+elif ! tmux list-windows -t "$repo" -F '#W' | grep -Fxq "$window"; then
+  tmux new-window -t "$repo:" -n "$window" -c "$worktree"
+  setup_panes "$repo:$window" "$worktree"
+fi
+# else: window already exists — idempotent re-spawn, just switch.
+
+if [ -n "$TMUX" ]; then
+  tmux switch-client -t "$repo:$window"
+else
+  tmux attach-session -t "$repo:$window"
+fi
