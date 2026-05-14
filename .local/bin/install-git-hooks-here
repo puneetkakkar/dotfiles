@@ -1,0 +1,67 @@
+#!/usr/bin/env sh
+# Install local caveman-commit enforcement in the current git repo.
+#
+# Behavior depends on repo type:
+#   - Husky repo (`.husky/` directory exists):
+#       Creates an empty `.husky/commit-msg` stub so husky's dispatcher
+#       runs `~/.config/husky/init.sh` for commit-msg events. Adds the
+#       stub to `.git/info/exclude` so it stays local to this clone.
+#   - Non-husky repo:
+#       Copies `~/.config/git/template/hooks/commit-msg` into
+#       `.git/hooks/commit-msg` (the template directory only fires on
+#       fresh clones; this backfills already-cloned repos).
+#
+# Idempotent: re-running is a no-op if everything is already wired.
+
+set -e
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Not inside a git work tree. cd into a repo and try again." >&2
+  exit 1
+fi
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+if [ -d .husky ]; then
+  echo "Detected husky repo — installing local-only commit-msg stub."
+
+  if [ ! -f .husky/commit-msg ]; then
+    cat > .husky/commit-msg <<'EOF'
+#!/usr/bin/env sh
+# Local-only stub. Caveman validation lives in ~/.config/husky/init.sh,
+# sourced by husky's dispatcher before this stub runs. This file's
+# only job is to exist so husky's `h` doesn't exit early.
+exit 0
+EOF
+    chmod +x .husky/commit-msg
+    echo "  created .husky/commit-msg"
+  else
+    echo "  .husky/commit-msg already present (leaving alone)"
+  fi
+
+  if ! grep -qxF ".husky/commit-msg" .git/info/exclude 2>/dev/null; then
+    {
+      echo ""
+      echo "# Local-only commit-msg hook (caveman-commit, see ~/.claude/CLAUDE.md)"
+      echo ".husky/commit-msg"
+    } >> .git/info/exclude
+    echo "  added .husky/commit-msg to .git/info/exclude"
+  else
+    echo "  .git/info/exclude already lists the stub"
+  fi
+else
+  template="${XDG_CONFIG_HOME:-$HOME/.config}/git/template/hooks/commit-msg"
+  if [ ! -f "$template" ]; then
+    echo "Template hook not found at $template. Did you run bootstrap.sh?" >&2
+    exit 1
+  fi
+
+  echo "Detected non-husky repo — installing commit-msg into .git/hooks/."
+  mkdir -p .git/hooks
+  cp "$template" .git/hooks/commit-msg
+  chmod +x .git/hooks/commit-msg
+  echo "  wrote .git/hooks/commit-msg"
+fi
+
+echo "Done."

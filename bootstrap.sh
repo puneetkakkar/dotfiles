@@ -114,6 +114,16 @@ link_dotfile ".local/bin/claude-agent"
 link_dotfile ".local/bin/claude-agent-launcher"
 link_dotfile ".local/bin/claude-agent-pick"
 link_dotfile ".local/bin/tmux-thumbs-pick"
+link_dotfile ".local/bin/install-git-hooks-here"
+
+# Git: caveman-commit enforcement
+# - template/hooks/commit-msg auto-installs into newly-cloned non-husky repos
+#   via init.templateDir (set in .gitconfig).
+# - husky/init.sh is sourced by husky's `h` dispatcher for repos using husky;
+#   together with `install-git-hooks-here` it gives husky repos the same
+#   validation without committing anything to them.
+link_dotfile ".config/git/template/hooks/commit-msg"
+link_dotfile ".config/husky/init.sh"
 
 # Optional / preserved-but-not-deployed:
 #   .vimrc            (Vundle-based vim, polish later)

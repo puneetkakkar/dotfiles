@@ -1,0 +1,43 @@
+#!/usr/bin/env sh
+# Caveman-commit enforcement (see ~/.claude/skills/caveman-commit/SKILL.md).
+# Installed automatically into newly-cloned repos via `init.templateDir`.
+#
+# Rejects:
+#   1. AI / Anthropic attribution (Co-Authored-By: Claude, "Generated with Claude").
+#   2. Subject lines longer than 72 chars.
+# Skips merge / revert / fixup / squash auto-generated messages.
+
+msg_file="$1"
+msg=$(cat "$msg_file")
+subject=$(printf '%s\n' "$msg" | head -n1)
+
+case "$subject" in
+  "Merge "*|"Revert "*|"Reapply "*|"fixup! "*|"squash! "*|"amend! "*) exit 0 ;;
+esac
+
+errors=0
+
+if printf '%s' "$msg" | grep -qiE "co-authored-by:[[:space:]]*claude\b"; then
+  echo "✖ commit-msg: 'Co-Authored-By: Claude ...' trailer is forbidden." >&2
+  errors=$((errors + 1))
+fi
+
+if printf '%s' "$msg" | grep -qiE "generated[[:space:]]+with[[:space:]]+\[?claude\b"; then
+  echo "✖ commit-msg: 'Generated with Claude ...' footer is forbidden." >&2
+  errors=$((errors + 1))
+fi
+
+subject_len=$(printf '%s' "$subject" | wc -c | tr -d ' ')
+if [ "$subject_len" -gt 72 ]; then
+  echo "✖ commit-msg: subject line is $subject_len chars (hard cap 72)." >&2
+  echo "  → $subject" >&2
+  errors=$((errors + 1))
+fi
+
+if [ "$errors" -gt 0 ]; then
+  echo "" >&2
+  echo "  Rewrite the message and try again. Style: ~/.claude/skills/caveman-commit/SKILL.md" >&2
+  exit 1
+fi
+
+exit 0
