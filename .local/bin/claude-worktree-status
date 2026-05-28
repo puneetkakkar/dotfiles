@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# claude-worktree-status — list every active worktree of the current repo
+# alongside dirty state, PR number + state, and whether a Claude window is
+# waiting on it. Bound to `prefix W` via display-popup.
+#
+# Identifies the matching Claude window by basename(worktree) == window name —
+# this is the convention `claude-agent` writes (the label becomes both the
+# worktree dirname and the tmux window name, both lowercased).
+
+set -uo pipefail
+
+PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+
+cwd="${PWD}"
+repo_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || {
+  echo "Not in a git repo (cwd=$cwd)"
+  exit 0
+}
+repo=$(basename "$repo_root")
+
+# Collect Claude-waiting window names across all sessions. The Notification
+# hook sets @claude-needs-input on the window; status-right reads the same
+# flag for the ● indicator.
+waiting=$(tmux list-windows -a -F '#{?@claude-needs-input,#W,}' 2>/dev/null | grep -v '^$' || true)
+
+is_waiting() {
+  local name="$1"
+  printf '%s\n' "$waiting" | grep -Fxq "$name"
+}
+
+# Header (fixed-width columns for terminal alignment).
+printf '%-26s %-7s %-7s %-15s %-8s\n' BRANCH DIRTY AHEAD PR CLAUDE
+printf '%-26s %-7s %-7s %-15s %-8s\n' "$(printf '%.0s-' {1..26})" "$(printf '%.0s-' {1..7})" "$(printf '%.0s-' {1..7})" "$(printf '%.0s-' {1..15})" "$(printf '%.0s-' {1..8})"
+
+# Iterate worktrees in `--porcelain` order (main checkout first).
+git -C "$repo_root" worktree list --porcelain 2>/dev/null | awk '
+  /^worktree/ { wt = $2 }
+  /^branch refs\/heads\// { sub("^branch refs/heads/", ""); print wt "\t" $0 }
+' | while IFS=$'\t' read -r wt branch; do
+  dirty="-"
+  if [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then
+    dirty="dirty"
+  fi
+
+  # Ahead/behind master (only meaningful for non-main checkouts).
+  ahead="-"
+  if [ "$wt" != "$repo_root" ]; then
+    ahead_count=$(git -C "$wt" rev-list --count "origin/master..$branch" 2>/dev/null || echo "?")
+    ahead="$ahead_count"
+  fi
+
+  # PR lookup — `gh pr view` returns the PR associated with the branch in
+  # the worktree's cwd. Single call, JSON parsed for number + state.
+  pr_field="-"
+  pr_json=$(cd "$wt" && GH_PAGER=cat gh pr view --json number,state 2>/dev/null) || true
+  if [ -n "$pr_json" ]; then
+    pr_num=$(printf '%s' "$pr_json" | jq -r '.number // empty' 2>/dev/null)
+    pr_state=$(printf '%s' "$pr_json" | jq -r '.state // empty' 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    if [ -n "$pr_num" ]; then
+      pr_field="#${pr_num} ${pr_state}"
+    fi
+  fi
+
+  # Claude state — match by `basename(worktree)` (the label that became the
+  # window name) OR by `basename(repo_root)` for the main checkout.
+  label=$(basename "$wt")
+  claude="-"
+  if is_waiting "$label"; then
+    claude="WAITING"
+  fi
+
+  # Truncate branch name to column width to keep alignment.
+  branch_display="${branch:0:25}"
+  printf '%-26s %-7s %-7s %-15s %-8s\n' "$branch_display" "$dirty" "$ahead" "$pr_field" "$claude"
+done
+
+# Footer: total count + quick hint
+total=$(git -C "$repo_root" worktree list --porcelain 2>/dev/null | grep -c '^worktree ' || echo 0)
+echo
+printf 'Repo: %s  ·  %s worktree(s)  ·  prefix N → jump to next waiting\n' "$repo" "$total"

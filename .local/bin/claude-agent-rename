@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# claude-agent-rename <new-label>
+#
+# Atomically rename the current branch + the matching tmux window to
+# <new-label>. Use when a placeholder label (`scratch-…`, `spike-…`,
+# `explore-…`) has crystallized into a real ticket (e.g. `rec-380-slice-1-…`)
+# and you want the status bar + window list to reflect reality WITHOUT
+# exiting Claude.
+#
+# Does NOT rename the worktree directory — moving the directory would
+# require Claude to release its cwd handle. The dir name is local-only
+# cosmetics; status-right reads the branch (not the path), so the user-
+# visible identity updates correctly. To also tidy the dir name later:
+#
+#   exit                                              # leave Claude
+#   git worktree move <old-path> <parent>/<new-label>
+#   cd <parent>/<new-label> && claude --resume
+
+set -euo pipefail
+
+new_label="${1:-}"
+if [ -z "$new_label" ]; then
+  echo "usage: claude-agent-rename <new-label>" >&2
+  exit 1
+fi
+
+# Validate label shape — same conventions as claude-agent: lowercase alphanumeric
+# + hyphens, must start alphanumeric. Rejects slashes, spaces, leading hyphens.
+if [[ ! "$new_label" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+  echo "claude-agent-rename: label must be lowercase alphanumeric + hyphens" >&2
+  echo "  example: rec-380-slice-1-pino-sentry-transport" >&2
+  exit 1
+fi
+
+cwd="${PWD}"
+worktree=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || {
+  echo "claude-agent-rename: not inside a git repo (cwd=$cwd)" >&2
+  exit 1
+}
+
+old_branch=$(git -C "$worktree" rev-parse --abbrev-ref HEAD)
+
+# Idempotency — already there
+if [ "$old_branch" = "$new_label" ]; then
+  echo "Already on branch '$new_label' — nothing to do"
+  exit 0
+fi
+
+# Collision — refuse to overwrite an existing branch
+if git -C "$worktree" show-ref --verify --quiet "refs/heads/$new_label"; then
+  echo "claude-agent-rename: branch '$new_label' already exists locally" >&2
+  echo "  Pick a different label, or first: git -C $worktree branch -D $new_label" >&2
+  exit 1
+fi
+
+# 1. Rename the branch. `git branch -m` is safe on the currently-checked-out
+#    branch — reference renames are atomic and the working tree is untouched.
+git -C "$worktree" branch -m "$old_branch" "$new_label"
+echo "✓ branch: $old_branch → $new_label"
+
+# 2. Rename the tmux window. Same shortening rule as claude-agent
+#    (`rec-XXX-…` → `rXXX-…`, capped at 24 chars).
+if [ -n "${TMUX:-}" ]; then
+  window_label=$(printf '%s' "$new_label" | sed -E 's/^(rec|REC)-/r/' | cut -c1-24)
+  if tmux rename-window "$window_label" 2>/dev/null; then
+    echo "✓ tmux window → $window_label"
+  fi
+  tmux display-message -d 3000 "promoted → $new_label" 2>/dev/null || true
+fi
+
+# 3. Informational footer — worktree dir, if user wants full tidiness.
+old_dirname=$(basename "$worktree")
+if [ "$old_dirname" != "$new_label" ]; then
+  echo
+  echo "Worktree dir is still at:"
+  echo "  $worktree"
+  echo "Status-right shows the branch (now '$new_label'), so the dir name is"
+  echo "cosmetic. To also rename the dir (requires exiting Claude first):"
+  echo "  exit"
+  echo "  git worktree move '$worktree' '$(dirname "$worktree")/$new_label'"
+  echo "  cd '$(dirname "$worktree")/$new_label' && claude --resume"
+fi
