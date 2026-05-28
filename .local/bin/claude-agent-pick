@@ -53,15 +53,27 @@ fi
 # fzf:
 #   --print-query  → first line of output is the query (typed input).
 #                    Subsequent lines are matches. If user accepts a match,
-#                    line 2 is the selection. If user types something with no
-#                    match and hits Enter, line 2 is empty and we use the query.
+#                    line 2 is the selection. If user types a new label that
+#                    matches nothing, fzf still emits the query on line 1
+#                    BUT exits 1 (no-match). We treat that as a valid
+#                    "create-new-label" path; only exit codes >1 (130 Esc /
+#                    Ctrl-C, 2 error) are real cancels.
+#
+# `set -e` would abort on fzf's non-zero exit before we get to read the
+# query, so disable it across the fzf call.
+set +e
 selection=$(printf '%s\n' "$candidates" | fzf \
   --prompt="agent ▸ " \
   --height=100% \
   --reverse \
   --print-query \
   --header="↵ resume on selected · or type a new label and ↵" \
-  --header-first 2>/dev/null) || exit 0
+  --header-first 2>/dev/null)
+fzf_exit=$?
+set -e
+if [ "$fzf_exit" -gt 1 ]; then
+  exit 0
+fi
 
 query=$(printf '%s\n' "$selection" | sed -n '1p')
 match=$(printf '%s\n' "$selection" | sed -n '2p')
