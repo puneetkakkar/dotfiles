@@ -138,6 +138,33 @@ if [ ! -d "$worktree" ]; then
   esac
 fi
 
+# ---- Pre-trust the worktree path in Claude Code's workspace registry --------
+# Claude Code's workspace trust is keyed by absolute path in ~/.claude.json
+# (.projects.<path>.hasTrustDialogAccepted). An untrusted path silently
+# strips project skills + hooks, which is why /open-pr, /build, etc. come
+# back as "unknown command" in fresh worktrees. claude-agent's worktrees are
+# created from a branch the engineer just opened with intent — they are
+# implicitly trusted. Atomic mktemp + mv preserves the rest of the (large)
+# JSON. Failure is non-fatal — the .zshrc claude() wrapper is the fallback.
+trust_worktree_path() {
+  local path="$1"
+  local config="$HOME/.claude.json"
+  [ -f "$config" ] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  local tmp
+  tmp=$(mktemp -t claude-trust.XXXXXX) || return 0
+  if jq --arg path "$path" '
+    .projects[$path] //= {} |
+    .projects[$path].hasTrustDialogAccepted = true |
+    .projects[$path].hasCompletedProjectOnboarding = true
+  ' "$config" > "$tmp" 2>/dev/null; then
+    mv "$tmp" "$config"
+  else
+    rm -f "$tmp"
+  fi
+}
+trust_worktree_path "$worktree"
+
 # ---- Tmux session/window ----------------------------------------------------
 window=$(printf '%s' "$label" | sed -E 's/^(rec|REC)-/r/' | cut -c1-24)
 

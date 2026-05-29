@@ -91,6 +91,34 @@ if ! (cd "$main_root" && git worktree move "$worktree" "$new_worktree" 2>/dev/nu
 fi
 echo "✓ worktree: $worktree → $new_worktree"
 
+# --- Migrate Claude Code workspace trust to the new path -------------------
+# Claude Code keys workspace trust by absolute path in ~/.claude.json
+# (.projects.<path>.hasTrustDialogAccepted). The worktree move would orphan
+# the old path's entry, so the renamed worktree silently loses project
+# skills + hooks. Copy the entry forward — and delete the stale old one to
+# keep the registry from accumulating dead paths over many promotions.
+migrate_trust() {
+  local old_path="$1" new_path="$2"
+  local config="$HOME/.claude.json"
+  [ -f "$config" ] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  local tmp
+  tmp=$(mktemp -t claude-trust.XXXXXX) || return 0
+  if jq --arg old "$old_path" --arg new "$new_path" '
+    if .projects[$old] then
+      .projects[$new] = .projects[$old] | del(.projects[$old])
+    else
+      .projects[$new] //= { hasTrustDialogAccepted: true, hasCompletedProjectOnboarding: true }
+    end
+  ' "$config" > "$tmp" 2>/dev/null; then
+    mv "$tmp" "$config"
+    echo "✓ trust: $old_path → $new_path"
+  else
+    rm -f "$tmp"
+  fi
+}
+migrate_trust "$worktree" "$new_worktree"
+
 # --- Update shell cwds in matching panes -----------------------------------
 # Any pane (across any session) whose cwd starts with the old worktree path
 # needs `cd <new-path>` so its $PWD stops lying. The kernel handle is still

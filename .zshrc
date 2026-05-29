@@ -148,6 +148,16 @@ alias kx='kubectx'                              # switch k8s context (cluster)
 alias kn='kubens'                               # switch k8s namespace
 
 # --- claude code ---
+# Function wrapper so every `claude` invocation — direct, alias, or the
+# `tmux send-keys "claude"` line in claude-agent — loads project + local
+# setting sources alongside user. The CLI defaults to user-only, which
+# silently drops project skills like /build, /open-pr, /plan from
+# apophis-style repos. Belt-and-suspenders with claude-agent pre-trust;
+# this catches paths the script can't pre-write to.
+claude() {
+  command claude --setting-sources user,project,local "$@"
+}
+
 alias c='claude'
 alias cr='claude --resume'                        # resume last session
 alias cc='claude --continue'                      # continue most recent
