@@ -6,8 +6,8 @@
 # with symlinks into this repo.
 #
 # Usage:
-#   git clone https://github.com/puneetkakkar/dotfiles.git ~/recovry/repos/dotfiles
-#   cd ~/recovry/repos/dotfiles
+#   git clone https://github.com/puneetkakkar/dotfiles.git ~/Github/dotfiles
+#   cd ~/Github/dotfiles
 #   ./bootstrap.sh
 
 set -euo pipefail
@@ -82,7 +82,24 @@ if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
 fi
 
 # ----------------------------------------------------------------------------
-# 8. Symlink dotfiles
+# 8. Machine-local config
+# ----------------------------------------------------------------------------
+step "Machine-local config"
+LOCAL_ENV="$HOME/.config/dotfiles/local.env"
+if [ ! -f "$LOCAL_ENV" ]; then
+  mkdir -p "$(dirname "$LOCAL_ENV")"
+  cp "$DOTFILES_REPO/.config/dotfiles/local.env.template" "$LOCAL_ENV"
+  read -r -p "  Where are your git repos on this machine? [$HOME/Github]: " _repos_dir
+  _repos_dir="${_repos_dir:-$HOME/Github}"
+  # BSD sed (-i '') on macOS
+  sed -i '' "s|REPOS_DIR=.*|REPOS_DIR=\"$_repos_dir\"|" "$LOCAL_ENV"
+  echo "  Created $LOCAL_ENV  (REPOS_DIR=$_repos_dir)"
+else
+  echo "  $LOCAL_ENV already exists — skipping (edit it manually to change settings)"
+fi
+
+# ----------------------------------------------------------------------------
+# 9. Symlink dotfiles
 # ----------------------------------------------------------------------------
 step "Symlinking dotfiles"
 
@@ -131,7 +148,7 @@ link_dotfile ".config/husky/init.sh"
 # Add `link_dotfile ".vimrc"` here when you decide to deploy them.
 
 # ----------------------------------------------------------------------------
-# 9. thumbs binary (no homebrew formula; release zip from upstream)
+# 10. thumbs binary (no homebrew formula; release zip from upstream)
 # ----------------------------------------------------------------------------
 if [ ! -x "$HOME/.local/bin/thumbs" ]; then
   step "Downloading thumbs binary"
@@ -146,7 +163,7 @@ if [ ! -x "$HOME/.local/bin/thumbs" ]; then
 fi
 
 # ----------------------------------------------------------------------------
-# 10. Rosetta 2 (Apple Silicon only — needed for the x86_64 thumbs binary)
+# 11. Rosetta 2 (Apple Silicon only — needed for the x86_64 thumbs binary)
 # ----------------------------------------------------------------------------
 if [ "$ARCH" = "arm64" ]; then
   if ! arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
@@ -156,7 +173,7 @@ if [ "$ARCH" = "arm64" ]; then
 fi
 
 # ----------------------------------------------------------------------------
-# 11. Set per-repo personal email for this dotfiles repo
+# 12. Set per-repo personal email for this dotfiles repo
 # ----------------------------------------------------------------------------
 step "Configuring per-repo git identity for dotfiles"
 git -C "$DOTFILES_REPO" config user.email "pkakkar996@gmail.com"

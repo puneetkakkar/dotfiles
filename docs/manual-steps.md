@@ -28,7 +28,7 @@ gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname) signing" --type signin
 echo "pkakkar996@gmail.com $(cat ~/.ssh/id_ed25519.pub)" >> ~/.ssh/allowed_signers
 ```
 
-Test with: `git -C ~/recovry/repos/dotfiles log --show-signature -1`.
+Test with: `git -C ~/Github/dotfiles log --show-signature -1`.
 
 ## 2. GitHub CLI auth
 

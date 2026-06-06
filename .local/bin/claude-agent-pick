@@ -11,16 +11,21 @@ set -e
 
 cwd="${1:-$PWD}"
 
+# Load machine-local config (REPOS_DIR, etc.). Created by bootstrap.sh.
+# shellcheck source=/dev/null
+[ -f "$HOME/.config/dotfiles/local.env" ] && source "$HOME/.config/dotfiles/local.env"
+REPOS_DIR="${REPOS_DIR:-$HOME/Github}"
+
 # Step 1 — find a repo. If the current pane is inside one, use it.
-# Otherwise, fzf-pick from ~/recovry/repos/*.
+# Otherwise, fzf-pick from $REPOS_DIR.
 repo_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)
 
 if [ -z "$repo_root" ]; then
-  repo_dirs=$(find "$HOME/recovry/repos" -maxdepth 2 -name ".git" -type d 2>/dev/null \
+  repo_dirs=$(find "$REPOS_DIR" -maxdepth 2 -name ".git" -type d 2>/dev/null \
     | sed 's@/.git$@@' \
     | sort)
   if [ -z "$repo_dirs" ]; then
-    echo "No git repos found under ~/recovry/repos/."
+    echo "No git repos found under $REPOS_DIR."
     read -r -n 1 -p "Press any key to close. "
     exit 1
   fi

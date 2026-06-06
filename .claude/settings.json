@@ -28,5 +28,6 @@
     "command": "bash ~/.claude/statusline-wrapper.sh"
   },
   "theme": "auto",
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "tui": "fullscreen"
 }
