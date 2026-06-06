@@ -51,45 +51,73 @@ if [ "$worktree" = "$main_root" ]; then
   exit 1
 fi
 
-# Idempotency — already there
-if [ "$old_branch" = "$new_label" ]; then
-  echo "Already on branch '$new_label' — nothing to do"
+old_dirname=$(basename "$worktree")
+worktree_parent=$(dirname "$worktree")
+new_worktree="$worktree_parent/$new_label"
+
+# Compute per-step "needs work" flags so the script reconciles partial state.
+# Earlier versions exited as soon as the branch matched the target label,
+# which left out-of-band edits (a manual `git worktree move` without the
+# `git branch -m`, a hand-named worktree dir, or a tmux window that fell out
+# of sync) permanently unaligned and `/promote-task` would silently no-op.
+need_branch_rename=0
+need_worktree_move=0
+[ "$old_branch" != "$new_label" ] && need_branch_rename=1
+[ "$worktree" != "$new_worktree" ] && need_worktree_move=1
+
+# Compute tmux window need separately so we can short-circuit before tmux
+# work later. The `r` shortening rule mirrors the rename step below.
+need_window_rename=0
+expected_window=$(printf '%s' "$new_label" | sed -E 's/^(rec|REC)-/r/' | cut -c1-24)
+if [ -n "${TMUX:-}" ]; then
+  current_window=$(tmux display-message -p '#W' 2>/dev/null || echo "")
+  [ "$current_window" != "$expected_window" ] && need_window_rename=1
+fi
+
+# All three already aligned? Nothing to do.
+if [ "$need_branch_rename" = 0 ] && [ "$need_worktree_move" = 0 ] && [ "$need_window_rename" = 0 ]; then
+  echo "Already aligned (branch + worktree + tmux window) — nothing to do"
   exit 0
 fi
 
-# Branch collision
-if git -C "$worktree" show-ref --verify --quiet "refs/heads/$new_label"; then
+# Branch collision — only relevant if we're actually renaming the branch.
+if [ "$need_branch_rename" = 1 ] && git -C "$worktree" show-ref --verify --quiet "refs/heads/$new_label"; then
   echo "claude-agent-rename: branch '$new_label' already exists locally" >&2
   echo "  Pick a different label, or delete: git -C $worktree branch -D $new_label" >&2
   exit 1
 fi
 
-old_dirname=$(basename "$worktree")
-worktree_parent=$(dirname "$worktree")
-new_worktree="$worktree_parent/$new_label"
-
-# Directory collision (separate from branch collision because the names
-# could go out of sync via manual operations).
-if [ -e "$new_worktree" ]; then
+# Directory collision — only relevant if we're actually moving the worktree.
+# (Separate from branch collision because the names could go out of sync via
+# manual operations.)
+if [ "$need_worktree_move" = 1 ] && [ -e "$new_worktree" ]; then
   echo "claude-agent-rename: target directory already exists: $new_worktree" >&2
   echo "  Remove it first, or pick a different label." >&2
   exit 1
 fi
 
 # --- Rename branch ----------------------------------------------------------
-git -C "$worktree" branch -m "$old_branch" "$new_label"
-echo "✓ branch: $old_branch → $new_label"
+if [ "$need_branch_rename" = 1 ]; then
+  git -C "$worktree" branch -m "$old_branch" "$new_label"
+  echo "✓ branch: $old_branch → $new_label"
+fi
 
 # --- Move worktree directory -----------------------------------------------
 # `git worktree move` refuses to move the cwd worktree, so we invoke it
 # from the main checkout. Unwind the branch rename on failure so we don't
 # leave a half-renamed state.
-if ! (cd "$main_root" && git worktree move "$worktree" "$new_worktree" 2>/dev/null); then
-  echo "claude-agent-rename: worktree move failed — unwinding branch rename" >&2
-  git -C "$worktree" branch -m "$new_label" "$old_branch" 2>/dev/null || true
-  exit 1
+if [ "$need_worktree_move" = 1 ]; then
+  if ! (cd "$main_root" && git worktree move "$worktree" "$new_worktree" 2>/dev/null); then
+    echo "claude-agent-rename: worktree move failed — unwinding branch rename" >&2
+    if [ "$need_branch_rename" = 1 ]; then
+      git -C "$new_worktree" branch -m "$new_label" "$old_branch" 2>/dev/null \
+        || git -C "$worktree" branch -m "$new_label" "$old_branch" 2>/dev/null \
+        || true
+    fi
+    exit 1
+  fi
+  echo "✓ worktree: $worktree → $new_worktree"
 fi
-echo "✓ worktree: $worktree → $new_worktree"
 
 # --- Migrate Claude Code workspace trust to the new path -------------------
 # Claude Code keys workspace trust by absolute path in ~/.claude.json
@@ -117,13 +145,18 @@ migrate_trust() {
     rm -f "$tmp"
   fi
 }
-migrate_trust "$worktree" "$new_worktree"
+# Only migrate when the worktree actually moved. Calling with old==new would
+# delete the trust entry via the `del(.projects[$old])` after the self-assign.
+if [ "$need_worktree_move" = 1 ]; then
+  migrate_trust "$worktree" "$new_worktree"
+fi
 
 # --- Update shell cwds in matching panes -----------------------------------
 # Any pane (across any session) whose cwd starts with the old worktree path
 # needs `cd <new-path>` so its $PWD stops lying. The kernel handle is still
 # valid via inode, but the shell's recorded path is stale until the next cd.
-if [ -n "${TMUX:-}" ]; then
+# Only relevant when the worktree actually moved.
+if [ -n "${TMUX:-}" ] && [ "$need_worktree_move" = 1 ]; then
   tmux list-panes -aF '#{pane_id} #{pane_current_path}' 2>/dev/null \
     | while read -r pane_id pane_path; do
       if [[ "$pane_path" == "$worktree"* ]]; then
@@ -133,18 +166,30 @@ if [ -n "${TMUX:-}" ]; then
         tmux send-keys -t "$pane_id" "cd '$new_path' && clear" Enter 2>/dev/null || true
       fi
     done
+fi
 
-  # --- Rename tmux window (same shortening rule as claude-agent) ----------
-  window_label=$(printf '%s' "$new_label" | sed -E 's/^(rec|REC)-/r/' | cut -c1-24)
-  # Find the window that hosts our worktree. The convention is that
-  # claude-agent named the window after the old label, but we look it up by
-  # pane path so a manually-renamed window still gets caught.
+# --- Rename tmux window (same shortening rule as claude-agent) -------------
+# Window rename is independent of branch / dir rename — a manually-edited
+# window label or a partial promotion can leave only this step pending.
+if [ -n "${TMUX:-}" ] && [ "$need_window_rename" = 1 ]; then
+  # Locate the window in two steps:
+  #   1. Path-match across all panes (handles the cross-window invocation
+  #      where the user runs the script from another pane).
+  #   2. Fall back to the current window via TMUX env. Necessary when no
+  #      pane's recorded cwd matches the new worktree path — happens after
+  #      a manual `git worktree move` (this script's fix-up case), or when
+  #      the user's foreground shell still records a stale / deleted cwd.
   matching_window=$(tmux list-windows -aF '#{session_name}:#{window_index} #{pane_current_path}' 2>/dev/null \
     | awk -v root="$new_worktree" '$2 ~ ("^" root) { print $1; exit }')
-  if [ -n "$matching_window" ]; then
-    tmux rename-window -t "$matching_window" "$window_label" 2>/dev/null || true
-    echo "✓ tmux window → $window_label"
+  if [ -z "$matching_window" ]; then
+    matching_window=$(tmux display-message -p '#{session_name}:#{window_index}' 2>/dev/null || true)
   fi
+  if [ -n "$matching_window" ]; then
+    tmux rename-window -t "$matching_window" "$expected_window" 2>/dev/null || true
+    echo "✓ tmux window → $expected_window"
+  fi
+fi
 
+if [ -n "${TMUX:-}" ]; then
   tmux display-message -d 3000 "promoted → $new_label" 2>/dev/null || true
 fi
