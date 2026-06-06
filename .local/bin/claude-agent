@@ -22,11 +22,23 @@ set -e
 label="${1:?usage: claude-agent <label> [cwd]}"
 cwd="${2:-$PWD}"
 
-repo_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)
-if [ -z "$repo_root" ]; then
+# Resolve to the MAIN repo root, even when invoked from inside a worktree.
+# `--show-toplevel` returns the worktree's own path, which would make us derive
+# the wrong `repo` name and place the new worktree under a sibling of the
+# current worktree (e.g. `~/recovry/worktrees/rec-373-setup-ts/...` instead of
+# `~/recovry/worktrees/apophis/...`). `--git-common-dir` always points at the
+# main repo's `.git` regardless of caller location, so its parent is the main
+# checkout. Path may be relative — anchor it at $cwd and canonicalize.
+git_common_dir=$(git -C "$cwd" rev-parse --git-common-dir 2>/dev/null || true)
+if [ -z "$git_common_dir" ]; then
   echo "claude-agent: not inside a git repo (cwd=$cwd)" >&2
   exit 1
 fi
+case "$git_common_dir" in
+  /*) ;;
+  *)  git_common_dir="$cwd/$git_common_dir" ;;
+esac
+repo_root=$(cd "$git_common_dir/.." && pwd -P)
 repo=$(basename "$repo_root")
 
 # ---- Auto-cleanup of stale worktrees -----------------------------------------
