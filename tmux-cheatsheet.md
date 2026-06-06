@@ -168,7 +168,7 @@ Window names are the label, with `rec-` / `REC-` collapsed to `r` and capped at 
 
 - **Branch already checked out somewhere** (e.g. main checkout): redirects to that location instead of trying to make a duplicate worktree
 - **Case-insensitive APFS**: normalizes label casing so you don't shadow an existing dir
-- **No git repo at cwd**: picker falls back to a repo picker over `~/recovry/repos/*`
+- **No git repo at cwd**: picker falls back to a repo picker over `$REPOS_DIR` (configured in `~/.config/dotfiles/local.env`, default `$HOME/Github`)
 - **Window already exists for this label**: just switches to it — full idempotent re-spawn
 
 ### Direct CLI use
@@ -176,8 +176,8 @@ Window names are the label, with `rec-` / `REC-` collapsed to `r` and capped at 
 You can also invoke from a shell:
 
 ```bash
-claude-agent rec-300-some-ticket                          # uses cwd's repo
-claude-agent rec-300-some-ticket ~/recovry/repos/apophis  # explicit repo
+claude-agent rec-300-some-ticket                    # uses cwd's repo
+claude-agent rec-300-some-ticket ~/Github/apophis   # explicit repo path
 ```
 
 ---
@@ -716,7 +716,7 @@ Should print `@continuum-restore on`. If not, the line in `~/.tmux.conf` got com
 The launcher writes errors to a temp file and surfaces them via `tmux display-message`. If you see "claude-agent-pick error: ..." for ~4 seconds, that's the picker's stderr.
 
 Common causes:
-- Not in a git repo and `~/recovry/repos/` has no `.git` dirs at depth 2
+- Not in a git repo and `$REPOS_DIR` has no `.git` dirs at depth 2 — check `~/.config/dotfiles/local.env` has the right `REPOS_DIR` value
 - `fzf` not on PATH inside the popup (rare — the popup inherits Ghostty's env)
 
 Run the picker manually to debug:
