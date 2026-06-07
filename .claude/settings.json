@@ -29,5 +29,6 @@
   },
   "theme": "auto",
   "skipAutoPermissionPrompt": true,
-  "tui": "fullscreen"
+  "tui": "fullscreen",
+  "includeCoAuthoredBy": false
 }
