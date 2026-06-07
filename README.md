@@ -5,8 +5,8 @@ neovim, plus a small set of custom helpers (claude-agent worktrees,
 tmux-thumbs hint-copy, focus-aware "Claude needs input" indicator).
 
 Read [`tmux-cheatsheet.md`](tmux-cheatsheet.md) and
-[`shell-cheatsheet.md`](shell-cheatsheet.md) for the workflow guide; this
-file is just install instructions.
+[`shell-cheatsheet.md`](shell-cheatsheet.md) for the workflow guide (deployed
+to `~/Documents/Cheatsheets/` on your Mac); this file is just install instructions.
 
 ## One-line install on a fresh Mac
 
@@ -54,7 +54,8 @@ a recoverable copy of every file replaced.
 
 ## What's deployed
 
-- Top-level: `.zshrc`, `.tmux.conf`, `.gitconfig`, `.p10k.zsh`, two cheatsheets
+- Top-level: `.zshrc`, `.tmux.conf`, `.gitconfig`, `.p10k.zsh`
+- `~/Documents/Cheatsheets/`: `tmux-cheatsheet.md`, `shell-cheatsheet.md`
 - `.config/`: `tmux/` (theme + start script), `btop/`, `bat/`, `ccstatusline/`
 - `.claude/`: `settings.json`, statusline scripts, hooks (`notification.sh`,
   `stop.sh`, `block-dangerous-git.sh`)

@@ -108,8 +108,10 @@ link_dotfile ".zshrc"
 link_dotfile ".tmux.conf"
 link_dotfile ".gitconfig"
 link_dotfile ".p10k.zsh"
-link_dotfile "tmux-cheatsheet.md"
-link_dotfile "shell-cheatsheet.md"
+# Cheatsheets — deployed to ~/Documents/Cheatsheets/ (not root, per macOS convention)
+mkdir -p "$HOME/Documents/Cheatsheets"
+link_file "$DOTFILES_REPO/tmux-cheatsheet.md"   "$HOME/Documents/Cheatsheets/tmux-cheatsheet.md"
+link_file "$DOTFILES_REPO/shell-cheatsheet.md"  "$HOME/Documents/Cheatsheets/shell-cheatsheet.md"
 
 # .config/
 link_dotfile ".config/tmux/tmux.theme"
