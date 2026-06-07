@@ -78,6 +78,7 @@ Current knobs:
 | Variable | Default | What it controls |
 |---|---|---|
 | `REPOS_DIR` | `$HOME/Github` | Root directory scanned by `prefix A` (claude-agent-pick) when you're outside a git repo |
+| `WORKTREES_DIR` | `$HOME/Worktrees` | Root directory where `prefix A` (claude-agent) places git worktrees (`$WORKTREES_DIR/<repo>/<label>/`) |
 
 To add a new knob: add it to `.config/dotfiles/local.env.template` with a default, read it in whatever script needs it (source the file at startup), and re-run `bootstrap.sh` — it will skip creation since the file exists, so copy the new line in manually or delete `~/.config/dotfiles/local.env` to regenerate.
 

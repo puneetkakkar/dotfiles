@@ -116,9 +116,9 @@ Drop a `.envrc` file in any directory. When you `cd` in, direnv loads it; when y
 ### Setup per project
 
 ```bash
-cd ~/recovry/repos/grasp-backend
+cd ~/Github/my-service
 cat > .envrc <<'EOF'
-export AWS_PROFILE=recovry-prod
+export AWS_PROFILE=my-project-prod
 export AWS_DEFAULT_REGION=us-east-2
 export SSH_HOST=<bastion>
 EOF
@@ -151,7 +151,7 @@ direnv status                 # see what's loaded right now
 
 ```bash
 # ~/.envrc.aws-prod (in your home dir, not in repos)
-export AWS_PROFILE=recovry-prod
+export AWS_PROFILE=my-project-prod
 export AWS_DEFAULT_REGION=us-east-2
 
 # In a project's .envrc
@@ -656,7 +656,7 @@ xh GET https://api.example.com/data J '.results[0]'
 ```bash
 clonecd git@github.com:concentra-ai/some-service.git
 cat > .envrc <<'EOF'
-export AWS_PROFILE=recovry-prod
+export AWS_PROFILE=my-project-prod
 export DATABASE_URL="postgresql://localhost/dev"
 EOF
 echo ".envrc" >> .gitignore

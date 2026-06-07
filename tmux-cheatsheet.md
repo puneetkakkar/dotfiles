@@ -145,7 +145,7 @@ For preset layouts, `prefix +` (main pane on top) and `prefix =` (main pane on l
 Behind the scenes:
 1. **Auto-cleans** stale worktrees first (background fetch+prune; removes worktrees whose upstream is `[gone]` AND that have no uncommitted changes — never touches the main checkout)
 2. **Resolves** the label to a branch (local match → remote-only match → new branch)
-3. **Creates** a worktree at `~/recovry/worktrees/<repo>/<label>` (idempotent — reuses if it exists)
+3. **Creates** a worktree at `~/Worktrees/<repo>/<label>` (path is `$WORKTREES_DIR` from `~/.config/dotfiles/local.env`, default `$HOME/Worktrees`; idempotent — reuses if it exists)
 4. **Spawns** a tmux window in the repo's session with three panes: `claude` running on top, two zsh splits below
 5. **Switches** the current client to it
 
@@ -730,15 +730,15 @@ Run the picker manually to debug:
 It shouldn't (idempotent re-spawn handles this). If it did, you probably hit case-insensitive APFS shadowing — labels differing only in case map to the same dir. Check:
 
 ```bash
-ls ~/recovry/worktrees/<repo>/
-git -C ~/recovry/repos/<repo> worktree list
+ls ~/Worktrees/<repo>/
+git -C ~/Github/<repo> worktree list
 ```
 
 Cleanup:
 
 ```bash
-git -C ~/recovry/repos/<repo> worktree remove <path> --force
-git -C ~/recovry/repos/<repo> branch -D <branch>
+git -C ~/Github/<repo> worktree remove <path> --force
+git -C ~/Github/<repo> branch -D <branch>
 ```
 
 ### Thumbs popup blinks and disappears (or `prefix y` errors)

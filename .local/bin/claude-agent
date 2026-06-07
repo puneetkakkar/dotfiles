@@ -19,14 +19,19 @@
 
 set -e
 
+# Load machine-local config (WORKTREES_DIR, etc.). Created by bootstrap.sh.
+# shellcheck source=/dev/null
+[ -f "$HOME/.config/dotfiles/local.env" ] && source "$HOME/.config/dotfiles/local.env"
+WORKTREES_DIR="${WORKTREES_DIR:-$HOME/Worktrees}"
+
 label="${1:?usage: claude-agent <label> [cwd]}"
 cwd="${2:-$PWD}"
 
 # Resolve to the MAIN repo root, even when invoked from inside a worktree.
 # `--show-toplevel` returns the worktree's own path, which would make us derive
 # the wrong `repo` name and place the new worktree under a sibling of the
-# current worktree (e.g. `~/recovry/worktrees/rec-373-setup-ts/...` instead of
-# `~/recovry/worktrees/apophis/...`). `--git-common-dir` always points at the
+# current worktree (e.g. `~/Worktrees/apophis/rec-373-setup-ts/` instead of
+# `~/Worktrees/rec-373-setup-ts/rec-373-setup-ts/`). `--git-common-dir` always points at the
 # main repo's `.git` regardless of caller location, so its parent is the main
 # checkout. Path may be relative — anchor it at $cwd and canonicalize.
 git_common_dir=$(git -C "$cwd" rev-parse --git-common-dir 2>/dev/null || true)
@@ -107,7 +112,7 @@ branch="$RESOLVED_BRANCH"
 status="$RESOLVED_STATUS"
 
 # ---- Worktree setup ---------------------------------------------------------
-worktree_root="$HOME/recovry/worktrees/$repo"
+worktree_root="$WORKTREES_DIR/$repo"
 worktree="$worktree_root/$label"
 
 # If the resolved branch is already checked out somewhere, redirect to that
