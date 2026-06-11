@@ -45,7 +45,7 @@ set -gq @themepack-window-status-format "\
 #[bg=#737aa2,fg=#000000]\
 #[fg=#ffffff]#I\
 #[bg=#545c7e,fg=#737aa2]\
-#[fg=#ffffff] #{?#{@claude-needs-input},#[fg=#ffd866]● #[fg=#ffffff],#{?window_zoomed_flag, , }}#W \
+#[fg=#ffffff] #{?#{@claude-needs-input},#[fg=#ffd866]● #[fg=#ffffff],#{?window_zoomed_flag, ,}}#{=/10/…:window_name} \
 #[bg=#000000,fg=#545c7e]"
 
 # Powerline color options
@@ -137,7 +137,7 @@ set -gq @theme-window-status-current-format "\
 #[bg=#2f3352,fg=#000000]\
 #[fg=#ffffff]#I\
 #[bg=#1a1e38,fg=#2f3352]\
-#[fg=#ffffff] #{?window_zoomed_flag, , }#W #{?pane_synchronized,✵,}\
+#[fg=#ffffff] #{?window_zoomed_flag, ,}#{=/16/…:window_name} #{?pane_synchronized,✵,}\
 #[bg=#000000,fg=#1a1e38]"
 
 
