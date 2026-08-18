@@ -119,6 +119,7 @@ link_dotfile ".config/tmux/tmux.start.sh"
 link_dotfile ".config/btop/btop.conf"
 link_dotfile ".config/bat/config"
 link_dotfile ".config/ccstatusline/settings.json"
+link_dotfile ".config/direnv/direnv.toml"
 
 # .claude/ (settings, hooks, statusline scripts — runtime state stays local)
 link_dotfile ".claude/settings.json"

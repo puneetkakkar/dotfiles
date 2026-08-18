@@ -1,0 +1,6 @@
+# Silence direnv's routine per-directory chatter ("loading …/.envrc", "export ~PATH").
+# "-" disables normal status logging only — real errors and the `direnv allow`
+# trust prompt still print. Loaded state is visible via the p10k direnv prompt
+# segment and `direnv status`.
+[global]
+log_format = "-"
