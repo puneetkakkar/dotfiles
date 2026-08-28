@@ -102,6 +102,21 @@ if [ "$need_branch_rename" = 1 ]; then
   echo "✓ branch: $old_branch → $new_label"
 fi
 
+# --- Capture direnv trust before the move ----------------------------------
+# direnv keys an approved .envrc by its ABSOLUTE PATH, not by content: two
+# byte-identical .envrc files at different paths are separate trust decisions.
+# So moving a worktree silently revokes it, and every new pane opened in the
+# renamed worktree then prints `direnv: error ... is blocked` during zsh init
+# — which also trips powerlevel10k's instant-prompt warning. Re-grant after
+# the move, but ONLY if it was already trusted: this carries an existing
+# decision across a rename, it never grants trust that wasn't there.
+envrc_was_allowed=0
+if [ "$need_worktree_move" = 1 ] && [ -f "$worktree/.envrc" ] && command -v direnv >/dev/null 2>&1; then
+  if [ "$(cd "$worktree" && direnv status 2>/dev/null | awk '/^Found RC allowed/ { print $4; exit }')" = "0" ]; then
+    envrc_was_allowed=1
+  fi
+fi
+
 # --- Move worktree directory -----------------------------------------------
 # `git worktree move` refuses to move the cwd worktree, so we invoke it
 # from the main checkout. Unwind the branch rename on failure so we don't
@@ -117,6 +132,22 @@ if [ "$need_worktree_move" = 1 ]; then
     exit 1
   fi
   echo "✓ worktree: $worktree → $new_worktree"
+fi
+
+# --- Drop the inherited upstream tracking ----------------------------------
+# `git branch -m` carries the branch's upstream config keys forward to the new
+# name, so a placeholder branch that was tracking origin/master (or some other
+# wrong remote) ends up with the SAME wrong upstream under the ticket-shaped
+# name. `/open-pr` reads the upstream to decide where to push and what base
+# to target — leaving it pointed at master will misfile (or fail) the PR.
+# Unsetting is safe: the first push creates the correct upstream automatically.
+# Only relevant when the branch was actually renamed.
+if [ "$need_branch_rename" = 1 ]; then
+  upstream=$(git -C "${new_worktree:-$worktree}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)
+  if [ -n "$upstream" ]; then
+    git -C "${new_worktree:-$worktree}" branch --unset-upstream 2>/dev/null || true
+    echo "✓ upstream: unset (was $upstream)"
+  fi
 fi
 
 # --- Migrate Claude Code workspace trust to the new path -------------------
@@ -149,6 +180,40 @@ migrate_trust() {
 # delete the trust entry via the `del(.projects[$old])` after the self-assign.
 if [ "$need_worktree_move" = 1 ]; then
   migrate_trust "$worktree" "$new_worktree"
+fi
+
+# --- Migrate Claude Code session storage to the new path -------------------
+# Claude Code keys per-session storage (transcript history, todos, etc.) under
+# ~/.claude/projects/<encoded-abspath>/ where the encoding is the absolute
+# path with `/` → `-`. Without this rename, a Claude session launched in the
+# renamed worktree gets a fresh empty store and the auto-memory + transcript
+# from before the rename are orphaned under the old key.
+migrate_session_storage() {
+  local old_path="$1" new_path="$2"
+  local old_key new_key
+  old_key=$(printf '%s' "$old_path" | sed 's|/|-|g')
+  new_key=$(printf '%s' "$new_path" | sed 's|/|-|g')
+  local old_dir="$HOME/.claude/projects/$old_key"
+  local new_dir="$HOME/.claude/projects/$new_key"
+  [ -d "$old_dir" ] || return 0
+  if [ -e "$new_dir" ]; then
+    echo "  (session storage at $new_dir already exists — leaving $old_dir in place)" >&2
+    return 0
+  fi
+  if mv "$old_dir" "$new_dir" 2>/dev/null; then
+    echo "✓ session: $old_key → $new_key"
+  fi
+}
+if [ "$need_worktree_move" = 1 ]; then
+  migrate_session_storage "$worktree" "$new_worktree"
+fi
+
+# --- Re-grant direnv trust at the new path ---------------------------------
+if [ "$envrc_was_allowed" = 1 ] && [ -f "$new_worktree/.envrc" ]; then
+  if (cd "$new_worktree" && direnv allow .); then
+    echo "✓ direnv: re-allowed .envrc at new path"
+    direnv prune >/dev/null 2>&1 || true   # drop the now-dangling old-path entry
+  fi
 fi
 
 # --- Update shell cwds in matching panes -----------------------------------
