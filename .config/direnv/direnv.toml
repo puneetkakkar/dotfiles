@@ -1,6 +1,9 @@
 # Silence direnv's routine per-directory chatter ("loading …/.envrc", "export ~PATH").
-# "-" disables normal status logging only — real errors and the `direnv allow`
-# trust prompt still print. Loaded state is visible via the p10k direnv prompt
-# segment and `direnv status`.
+# log_filter is a regex matched against the already-formatted message; anything it
+# doesn't match — errors, the `direnv allow` trust prompt — still prints.
+#
+# Do NOT try to do this with log_format: it is a Go format string fed to Printf, so
+# a literal like "-" produces "%!!(MISSING)(EXTRA string=…)" garbage, and "" is
+# treated as unset and falls back to the default "direnv: %s".
 [global]
-log_format = "-"
+log_filter = "^direnv: (loading|unloading|export)"
