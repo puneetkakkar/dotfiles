@@ -108,6 +108,46 @@ eval "$(zoxide init zsh)"
 # direnv — auto-load .envrc per directory (run `direnv allow` to approve a new one)
 eval "$(direnv hook zsh)"
 
+# direnv approves an .envrc by ABSOLUTE PATH, never by content, so every fresh
+# worktree of a repo you already trust starts blocked — and then errors on each
+# new pane, which also trips p10k's instant-prompt warning. Carry the trust
+# forward, but only when this .envrc is byte-identical to the main checkout's
+# copy AND that copy is itself already approved: it re-applies a decision you
+# already made about this exact content. A new or edited .envrc still prompts,
+# which is the whole point of direnv's gate.
+_direnv_approved() {  # 0 = approved, in ${1:-$PWD}
+  # `cd -q` matters: a plain cd re-fires chpwd_functions, so this check would
+  # re-enter _direnv_trust_worktree and recurse until FUNCNEST trips.
+  [[ "$(builtin cd -q "${1:-$PWD}" && direnv status 2>/dev/null \
+        | awk '/^Found RC allowed/ { print $4; exit }')" == 0 ]]
+}
+_direnv_trust_worktree() {
+  (( _direnv_trust_busy )) && return 0   # guard: never re-enter via a nested cd
+  typeset -g _direnv_trust_busy=1
+  {
+    [[ -f .envrc ]] || return 0
+    _direnv_approved && return 0
+    local main
+    main=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 0
+    main=${main:h}
+    [[ $main != $PWD && -f $main/.envrc ]] || return 0
+    [[ "$(shasum -a 256 .envrc | cut -d" " -f1)" \
+       == "$(shasum -a 256 $main/.envrc | cut -d" " -f1)" ]] || return 0
+    _direnv_approved "$main" || return 0
+    direnv allow . 2>/dev/null || return 0
+    # Silent at startup — console I/O there trips p10k's instant prompt.
+    # Announced on a later `cd`, where an automatic trust decision should show.
+    (( _direnv_trust_verbose )) && print -u2 "direnv: trusted .envrc (identical to ${main:t}'s approved copy)"
+  } always { _direnv_trust_busy=0 }
+}
+# Once at startup (a pane can open directly inside an untrusted worktree, with
+# no chpwd), then on every directory change — prepended so it beats direnv's
+# own hook. Deliberately NOT a precmd: that would exec on every prompt.
+_direnv_trust_worktree
+_direnv_trust_verbose=1
+typeset -ag chpwd_functions
+chpwd_functions=(_direnv_trust_worktree ${chpwd_functions:#_direnv_trust_worktree})
+
 # terraform completion
 autoload -U +X bashcompinit && bashcompinit
 complete -o nospace -C /opt/homebrew/bin/terraform terraform
