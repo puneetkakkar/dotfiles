@@ -49,6 +49,12 @@ setopt HIST_FIND_NO_DUPS       # skip dups when searching
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"   # overridden below by powerlevel10k
 
+# Never prompt for an oh-my-zsh update: the `[Y/n]` question blocks a freshly
+# opened tmux pane, and any console I/O during zsh init trips powerlevel10k's
+# instant-prompt warning. `reminder` prints a one-line nudge instead; run
+# `omz update` when you see it.
+zstyle ':omz:update' mode reminder
+
 # Plugins — each adds aliases/completions. Keep the list lean: too many
 # plugins slow shell startup. See $ZSH/plugins/<name>/<name>.plugin.zsh
 plugins=(
@@ -226,3 +232,19 @@ export SDKMAN_DIR="$HOME/.sdkman"
 export JAVA_HOME="$HOME/.sdkman/candidates/java/current"
 export PATH="$JAVA_HOME/bin:$PATH"
 alias cheat='bat ~/shell-cheatsheet.md'
+
+# wt <branch> — create a git worktree whose directory name equals the branch
+# name (other tooling, incl. claude-agent-rename, assumes they match), then
+# trust its .envrc. direnv keys trust by absolute path, so a brand-new
+# worktree is always untrusted and would otherwise error on every new pane.
+wt() {
+  [ -n "$1" ] || { echo "usage: wt <branch> [start-point]" >&2; return 2; }
+  local repo branch dir
+  repo=$(git rev-parse --show-toplevel) || return 1
+  branch=$1
+  dir="$HOME/Worktrees/$(basename "$repo")/$branch"
+  git -C "$repo" worktree add -b "$branch" "$dir" "${2:-HEAD}" || return 1
+  [ -f "$dir/.envrc" ] && (cd "$dir" && direnv allow .)
+  cd "$dir"
+}
+eval "$(rbenv init - zsh)"
