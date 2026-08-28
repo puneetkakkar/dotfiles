@@ -1,4 +1,5 @@
 {
+  "includeCoAuthoredBy": false,
   "hooks": {
     "Notification": [
       {
@@ -27,8 +28,33 @@
     "type": "command",
     "command": "bash ~/.claude/statusline-wrapper.sh"
   },
-  "theme": "auto",
-  "skipAutoPermissionPrompt": true,
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true,
+    "andrej-karpathy-skills@karpathy-skills": true,
+    "claude-mem@thedotmack": true,
+    "caveman@caveman": true
+  },
+  "extraKnownMarketplaces": {
+    "karpathy-skills": {
+      "source": {
+        "source": "github",
+        "repo": "forrestchang/andrej-karpathy-skills"
+      }
+    },
+    "thedotmack": {
+      "source": {
+        "source": "github",
+        "repo": "thedotmack/claude-mem"
+      }
+    },
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    }
+  },
   "tui": "fullscreen",
-  "includeCoAuthoredBy": false
+  "theme": "auto",
+  "skipAutoPermissionPrompt": true
 }
