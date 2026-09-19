@@ -193,6 +193,38 @@ setup_panes() {
   tmux send-keys -t "${target}".0 "claude" Enter
 }
 
+# --- Pre-trust the worktree so Claude loads this project's skills ----------
+# Claude Code keys workspace trust by absolute path in ~/.claude.json
+# (.projects.<path>.hasTrustDialogAccepted), and it does NOT load a project's
+# `.claude/skills` until that path is trusted. A worktree created above is a
+# path Claude has never seen, so without this the agent starts with no project
+# skills at all — /build, /open-pr, /review and /plan are simply unknown —
+# while file edits, git and MCP all work normally. That asymmetry is what makes
+# it read as a Claude bug rather than as a trust prompt nobody answered.
+#
+# `claude-agent-rename` already migrates this entry on promotion; seeding it at
+# CREATE time is the other half of the same problem. Idempotent: `//=` leaves an
+# existing entry — and any prompts already answered against it — untouched.
+pretrust_worktree() {
+  local path="$1" config="$HOME/.claude.json" tmp
+  [ -f "$config" ] || return 0
+  command -v jq >/dev/null 2>&1 || {
+    echo "claude-agent: jq not found — skipping pre-trust; expect a trust prompt" >&2
+    return 0
+  }
+  tmp=$(mktemp -t claude-trust.XXXXXX) || return 0
+  if jq --arg p "$path" '
+    .projects[$p] //= { hasTrustDialogAccepted: true, hasCompletedProjectOnboarding: true }
+    | .projects[$p].hasTrustDialogAccepted = true
+  ' "$config" > "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
+    mv "$tmp" "$config"
+  else
+    rm -f "$tmp"
+    echo "claude-agent: could not pre-trust $path — expect a trust prompt" >&2
+  fi
+}
+pretrust_worktree "$worktree"
+
 if ! tmux has-session -t "$repo" 2>/dev/null; then
   tmux new-session -d -s "$repo" -n "$window" -c "$worktree"
   setup_panes "$repo:$window" "$worktree"
