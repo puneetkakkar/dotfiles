@@ -55,6 +55,5 @@
     }
   },
   "tui": "fullscreen",
-  "theme": "auto",
-  "skipAutoPermissionPrompt": true
+  "theme": "auto"
 }

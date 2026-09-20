@@ -1,5 +1,5 @@
 {
-"version": 3,
+  "version": 4,
   "lines": [
     [
       {
@@ -20,7 +20,9 @@
   "globalBold": false,
   "powerline": {
     "enabled": false,
-    "separators": [""],
+    "separators": [
+      ""
+    ],
     "separatorInvertBackground": [
       false
     ],

@@ -133,6 +133,8 @@ link_dotfile ".claude/hooks/block-dangerous-git.sh"
 link_dotfile ".local/bin/claude-agent"
 link_dotfile ".local/bin/claude-agent-launcher"
 link_dotfile ".local/bin/claude-agent-pick"
+link_dotfile ".local/bin/claude-agent-rename"
+link_dotfile ".local/bin/claude-worktree-status"
 link_dotfile ".local/bin/tmux-thumbs-pick"
 link_dotfile ".local/bin/install-git-hooks-here"
 
