@@ -56,10 +56,16 @@ a recoverable copy of every file replaced.
 
 - Top-level: `.zshrc`, `.tmux.conf`, `.gitconfig`, `.p10k.zsh`
 - `~/Documents/Cheatsheets/`: `tmux-cheatsheet.md`, `shell-cheatsheet.md`
-- `.config/`: `tmux/` (theme + start script), `btop/`, `bat/`, `ccstatusline/`
+- `.config/`: `tmux/` (theme + start script), `btop/`, `bat/`, `ccstatusline/`,
+  `direnv/`
 - `.claude/`: `settings.json`, statusline scripts, hooks (`notification.sh`,
   `stop.sh`, `block-dangerous-git.sh`)
-- `.local/bin/`: `claude-agent*` trio, `tmux-thumbs-pick`
+- `.local/bin/`: `claude-agent`, `claude-agent-launcher`, `claude-agent-pick`,
+  `claude-agent-rename`, `claude-worktree-status`, `tmux-thumbs-pick`,
+  `install-git-hooks-here`
+- Git commit-message enforcement ("caveman-commit"): `.config/git/template/hooks/commit-msg`
+  (auto-installs into new repos via `init.templateDir`) and `.config/husky/init.sh`
+  (same validation for husky-managed repos, paired with `install-git-hooks-here`)
 
 ## What's preserved but NOT deployed
 
