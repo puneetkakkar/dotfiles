@@ -32,6 +32,24 @@ is_waiting() {
 printf '%-26s %-7s %-7s %-15s %-8s\n' BRANCH DIRTY AHEAD PR CLAUDE
 printf '%-26s %-7s %-7s %-15s %-8s\n' "$(printf '%.0s-' {1..26})" "$(printf '%.0s-' {1..7})" "$(printf '%.0s-' {1..7})" "$(printf '%.0s-' {1..15})" "$(printf '%.0s-' {1..8})"
 
+# ---- Resolve the repo's default branch ---------------------------------------
+# `origin/HEAD` is the authoritative answer but is only present if the clone set
+# it (git clone does; `git remote add` does not). Fall back to whichever of
+# origin/main or origin/master actually exists, then to main.
+default_branch() {
+  local rr="$1" ref
+  ref=$(git -C "$rr" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+  if [ -n "$ref" ]; then printf '%s' "${ref#origin/}"; return; fi
+  for cand in main master; do
+    if git -C "$rr" show-ref --verify --quiet "refs/remotes/origin/$cand"; then
+      printf '%s' "$cand"; return
+    fi
+  done
+  printf 'main'
+}
+
+DEFAULT_BRANCH=$(default_branch "$repo_root")
+
 # Iterate worktrees in `--porcelain` order (main checkout first).
 git -C "$repo_root" worktree list --porcelain 2>/dev/null | awk '
   /^worktree/ { wt = $2 }
@@ -42,10 +60,10 @@ git -C "$repo_root" worktree list --porcelain 2>/dev/null | awk '
     dirty="dirty"
   fi
 
-  # Ahead/behind master (only meaningful for non-main checkouts).
+  # Commits ahead of the default branch (only meaningful for non-main checkouts).
   ahead="-"
   if [ "$wt" != "$repo_root" ]; then
-    ahead_count=$(git -C "$wt" rev-list --count "origin/master..$branch" 2>/dev/null || echo "?")
+    ahead_count=$(git -C "$wt" rev-list --count "origin/$DEFAULT_BRANCH..$branch" 2>/dev/null || echo "?")
     ahead="$ahead_count"
   fi
 

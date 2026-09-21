@@ -8,12 +8,13 @@
 #   1. Passive auto-cleanup: fetch+prune in background, remove worktrees whose
 #      branches have a [gone] upstream tracker (i.e. PR merged + origin branch
 #      deleted) AND have no uncommitted changes. Main checkout is never touched.
-#      Branches with zero commits ahead of master are NOT considered merged —
+#      Branches with zero commits ahead of the default branch are NOT considered
+#      merged —
 #      that would catch unstarted scratch worktrees by mistake.
 #   2. Smart resume: if a branch matching <label> exists locally or on origin,
 #      use it. If only on origin, create a tracking local branch.
 #   3. Fresh fallback: if no match, create a new branch named <label-lowercased>
-#      from origin/master.
+#      from the repo's default branch (origin/HEAD, else main/master).
 #   4. Idempotency: if the worktree already exists, skip creation. If the tmux
 #      window already exists, skip pane setup — just switch to it.
 
@@ -45,6 +46,24 @@ case "$git_common_dir" in
 esac
 repo_root=$(cd "$git_common_dir/.." && pwd -P)
 repo=$(basename "$repo_root")
+
+# ---- Resolve the repo's default branch ---------------------------------------
+# `origin/HEAD` is the authoritative answer but is only present if the clone set
+# it (git clone does; `git remote add` does not). Fall back to whichever of
+# origin/main or origin/master actually exists, then to main.
+default_branch() {
+  local rr="$1" ref
+  ref=$(git -C "$rr" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+  if [ -n "$ref" ]; then printf '%s' "${ref#origin/}"; return; fi
+  for cand in main master; do
+    if git -C "$rr" show-ref --verify --quiet "refs/remotes/origin/$cand"; then
+      printf '%s' "$cand"; return
+    fi
+  done
+  printf 'main'
+}
+
+DEFAULT_BRANCH=$(default_branch "$repo_root")
 
 # ---- Auto-cleanup of stale worktrees -----------------------------------------
 auto_cleanup() {
@@ -78,7 +97,7 @@ auto_cleanup "$repo_root"
 # Sets RESOLVED_BRANCH and RESOLVED_STATUS as globals (no subshell, so parent
 # scope sees them). Status:
 #   0 = exact local match (use as-is)
-#   1 = no match (create new branch from origin/master)
+#   1 = no match (create new branch from the default branch)
 #   2 = exists on origin only (create local tracking branch)
 RESOLVED_BRANCH=
 RESOLVED_STATUS=
@@ -147,8 +166,8 @@ mkdir -p "$worktree_root"
 if [ ! -d "$worktree" ]; then
   case "$status" in
     0) git -C "$repo_root" worktree add "$worktree" "$branch" ;;
-    1) git -C "$repo_root" fetch origin master --quiet 2>/dev/null || true
-       git -C "$repo_root" worktree add -b "$branch" "$worktree" origin/master ;;
+    1) git -C "$repo_root" fetch origin "$DEFAULT_BRANCH" --quiet 2>/dev/null || true
+       git -C "$repo_root" worktree add -b "$branch" "$worktree" "origin/$DEFAULT_BRANCH" ;;
     2) git -C "$repo_root" worktree add --track -b "$branch" "$worktree" "origin/$branch" ;;
     *) echo "claude-agent: internal error — unresolved status '$status' for label '$label'" >&2
        exit 1 ;;
