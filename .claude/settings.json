@@ -28,32 +28,14 @@
     "type": "command",
     "command": "bash ~/.claude/statusline-wrapper.sh"
   },
-  "enabledPlugins": {
-    "swift-lsp@claude-plugins-official": true,
-    "andrej-karpathy-skills@karpathy-skills": true,
-    "claude-mem@thedotmack": true,
-    "caveman@caveman": true
-  },
-  "extraKnownMarketplaces": {
-    "karpathy-skills": {
-      "source": {
-        "source": "github",
-        "repo": "forrestchang/andrej-karpathy-skills"
-      }
-    },
-    "thedotmack": {
-      "source": {
-        "source": "github",
-        "repo": "thedotmack/claude-mem"
-      }
-    },
-    "caveman": {
-      "source": {
-        "source": "github",
-        "repo": "JuliusBrussee/caveman"
-      }
+  "enabledPlugins": {},
+  "extraKnownMarketplaces": {},
+  "modelSettings": {
+    "claude-opus-5": {
+      "effortLevel": "low"
     }
   },
   "tui": "fullscreen",
-  "theme": "auto"
+  "theme": "auto",
+  "verbose": false
 }
