@@ -8,8 +8,7 @@
 
 ## Git commits and PRs
 
-- **No AI attribution anywhere.** Do not add `Co-Authored-By: Claude ...` trailers, "Generated with Claude Code" lines, or any other AI / Anthropic attribution to git commit messages. The same rule applies to PR titles, PR bodies, and PR template footers — strip any "🤖 Generated with [Claude Code]" footer before opening.
-- This overrides the default Claude Code commit procedure (which appends a `Co-Authored-By: Claude ...` trailer) and the default `gh pr create` body template footer.
+- **No AI attribution anywhere.** Automatic attribution is disabled through the `attribution` setting; this rule covers what that setting cannot reach. Never write AI or Anthropic attribution into a commit message, PR title, or PR body by hand, and strip any "🤖 Generated with [Claude Code]" footer that a repo's own PR template supplies before opening.
 
 ### Commit message style — caveman-commit by default
 
