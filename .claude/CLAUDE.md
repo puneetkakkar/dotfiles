@@ -25,15 +25,14 @@ Apply the `~/.claude/skills/caveman-commit` rules to every commit, without waiti
 ## Writing style (prose, not code)
 
 Applies to chat replies, PR bodies, plan files, tickets, docs, code comments
-and commit message bodies. Not to commit subjects, which `caveman-commit` and
-the commit-msg hook govern. In comments these rules cover wording only; what a
-comment should say is the repo's own convention.
+and commit message bodies. Commit subjects follow `caveman-commit` and the
+commit-msg hook. In comments these rules cover wording only; what a comment
+should say is the repo's own convention.
 
-- **No em dashes.** End the sentence or use a comma. If a thought needs separating, it needs a full stop.
-- **Active voice, and name the actor.** "queries are validated" becomes "the compiler validates queries". Use passive only when the actor is genuinely unknown or irrelevant.
-- **Bold is for lead-ins, not emphasis.** A bold label ending in a period that introduces new detail is fine. Bolding proper nouns, acronyms, or every other clause makes emphasis mean nothing.
-- **Cut adverbs that prop up a weak verb.** "silently fails" becomes "fails without reporting"; "runs quickly" becomes the number. Keep quantifiers: "reports exactly one" is a different claim from "reports one".
-- **Plain word over the fancy synonym.** "use" not "utilize", "help" not "facilitate", "if" not "in the event that".
-- **Whole sentences, not compressed notes.** Dropped articles, verbless fragments and abbreviations make the reader decode instead of read. Two exceptions: commit subjects, which have no room for it once the scope and any ticket trailer come out of 72 characters, and real notation in code comments (`Settings → Security → Screen lock`, `green→amber→red`), where spelling it out is worse.
+- **Separate thoughts with a full stop or a comma.** If a clause needs setting apart, end the sentence.
+- **Active voice, and name the actor.** "queries are validated" becomes "the compiler validates queries". Passive only when the actor is unknown or irrelevant.
+- **Bold only a lead-in label that ends in a period.** Bolding proper nouns, acronyms or every other clause makes emphasis mean nothing.
+- **Let the verb carry the meaning.** "silently fails" becomes "fails without reporting"; "runs quickly" becomes the number. Keep quantifiers: "reports exactly one" is a different claim from "reports one".
+- **Write whole sentences with their articles and verbs.** Real notation in code comments is the exception (`Settings → Security → Screen lock`), where spelling it out is worse.
 
 `/unslop` runs the full pstack rule set on a file when you want a deeper pass.
