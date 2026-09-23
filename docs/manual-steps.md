@@ -10,28 +10,40 @@ Order matters: do them top-to-bottom.
 
 ## 1. SSH key + GPG-via-SSH commit signing
 
-The `~/.gitconfig` deployed by bootstrap configures commits to be signed
-using an SSH key at `~/.ssh/id_ed25519_personal.pub`, with the allowed signers list
-at `~/.ssh/allowed_signers`. You need to generate the key and populate the
-allowed-signers file on each new machine.
+Commits are signed with an SSH key. The key differs per machine (personal vs
+work identity), so the tracked `.gitconfig` does not name one — it includes
+`~/.gitconfig.local`, which you create on each machine.
 
 ```bash
+# Pick the identity for THIS machine
+KEY=~/.ssh/id_ed25519_personal          # personal machine
+# KEY=~/.ssh/id_ed25519                 # work machine
+EMAIL=pkakkar996@gmail.com              # or pkakkar@recovry.ai on work
+
 # Generate the SSH key
-ssh-keygen -t ed25519 -C "pkakkar996@gmail.com" -f ~/.ssh/id_ed25519_personal
+ssh-keygen -t ed25519 -C "$EMAIL" -f "$KEY"
 
-# Add to GitHub
-gh ssh-key add ~/.ssh/id_ed25519_personal.pub --title "$(hostname) personal"
-# And as a SIGNING key (separate from auth key on GitHub)
-gh ssh-key add ~/.ssh/id_ed25519_personal.pub --title "$(hostname) signing" --type signing
+# Add to GitHub as an auth key, and again as a SIGNING key (they are separate)
+gh ssh-key add "$KEY.pub" --title "$(hostname) auth"
+gh ssh-key add "$KEY.pub" --title "$(hostname) signing" --type signing
 
-# Configure local commit signing (the global gitconfig already references this file)
-echo "pkakkar996@gmail.com $(cat ~/.ssh/id_ed25519_personal.pub)" >> ~/.ssh/allowed_signers
+# Point this machine's git at it (untracked, machine-local)
+printf '[user]\n\tsigningkey = %s\n' "$KEY.pub" > ~/.gitconfig.local
+
+# Allow local verification of your own signatures
+echo "$EMAIL $(cat "$KEY.pub")" >> ~/.ssh/allowed_signers
 
 # Load it into ssh-agent so signing doesn't hang waiting for the passphrase
-ssh-add ~/.ssh/id_ed25519_personal
+ssh-add "$KEY"
 ```
 
-Test with: `git -C ~/Github/dotfiles log --show-signature -1`.
+Without `~/.gitconfig.local`, `commit.gpgsign = true` has no key and every
+commit on that machine fails. To verify signatures made on your *other*
+machine locally, append that machine's key line to `~/.ssh/allowed_signers`
+too; otherwise its commits show as unverified locally (GitHub still verifies
+them).
+
+Test with: `git -C ~/recovry/repos/dotfiles log --show-signature -1`.
 
 ## 2. GitHub CLI auth
 

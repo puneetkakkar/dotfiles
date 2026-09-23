@@ -6,8 +6,6 @@
 	diffFilter = diff-so-fancy --patch
 [gpg]
 	format = ssh
-[user]
-	signingkey = /Users/puneetkakkar/.ssh/id_ed25519_personal.pub
 [commit]
 	gpgsign = true
 [gpg "ssh"]
@@ -18,3 +16,6 @@
 [credential "https://gist.github.com"]
 	helper = 
 	helper = !/opt/homebrew/bin/gh auth git-credential
+# Machine-specific values (signing key identity). Untracked; see docs/manual-steps.md.
+[include]
+	path = ~/.gitconfig.local
