@@ -16,6 +16,9 @@
 [credential "https://gist.github.com"]
 	helper = 
 	helper = !/opt/homebrew/bin/gh auth git-credential
+[rerere]
+	enabled = true
+	autoUpdate = true
 # Machine-specific values (signing key identity). Untracked; see docs/manual-steps.md.
 [include]
 	path = ~/.gitconfig.local
