@@ -1,0 +1,3 @@
+interface:
+  display_name: "TypeScript Best Practices"
+  short_description: "Type rules for .ts and .tsx files"

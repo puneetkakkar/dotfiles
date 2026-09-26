@@ -18,6 +18,10 @@
     }
   },
   "skills": {
+    "blast-radius": {
+      "source": "pstack",
+      "path": "pstack/skills/blast-radius"
+    },
     "caveman-commit": {
       "source": "caveman",
       "path": "skills/caveman-commit"
@@ -29,6 +33,11 @@
     "codebase-design": {
       "source": "mattpocock",
       "path": "skills/engineering/codebase-design"
+    },
+    "create-verification-skill": {
+      "source": "pstack",
+      "path": "pstack/skills/create-verification-skill",
+      "localEdit": "Writes the generated skill to .agents/skills/ instead of .cursor/skills/, and tells the agent to add the .claude/skills symlink."
     },
     "diagnosing-bugs": {
       "source": "mattpocock",
@@ -59,6 +68,11 @@
       "source": "mattpocock",
       "path": "skills/engineering/improve-codebase-architecture"
     },
+    "principle-type-system-discipline": {
+      "source": "pstack",
+      "path": "pstack/skills/principle-type-system-discipline",
+      "localEdit": "Replaces disable-model-invocation with paths for typed languages, so the TypeScript skill's 'apply first' can reach it."
+    },
     "prototype": {
       "source": "mattpocock",
       "path": "skills/engineering/prototype"
@@ -83,6 +97,11 @@
     "teach": {
       "source": "mattpocock",
       "path": "skills/productivity/teach"
+    },
+    "typescript-best-practices": {
+      "source": "pstack",
+      "path": "pstack/skills/typescript-best-practices",
+      "localEdit": "Removes disable-model-invocation so paths auto-loading works outside pstack's poteto-mode router, and names the Skill tool for its type-system-discipline dependency so the model follows it."
     },
     "unslop": {
       "source": "pstack",

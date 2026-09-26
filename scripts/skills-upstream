@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""Compare vendored skills in agents/skills/ with their upstream sources.
+
+Usage:
+  scripts/skills-upstream diff       # vendored vs the pinned commit in skills.lock.json
+  scripts/skills-upstream outdated   # pinned commit vs upstream's current default branch
+
+`diff` fails when a skill differs from its pinned upstream but has no
+`localEdit` note in the lock file, or has a note but no longer differs. It is
+the check that every local edit is recorded. Files this repo adds beside a
+skill (ATTRIBUTION.md, LICENSE, and agents/openai.yaml where upstream has
+none) are not counted as edits.
+
+`outdated` lists skills whose upstream changed since the pinned commit. To take
+an update: copy the new upstream folder over agents/skills/<name>, re-apply
+the recorded localEdit, bump the source commit, and run `diff` again.
+
+Upstream checkouts are cached under ${XDG_CACHE_HOME:-~/.cache}/dotfiles-skills.
+"""
+import filecmp
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+LOCK = REPO / "agents/skills.lock.json"
+SKILLS = REPO / "agents/skills"
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "dotfiles-skills"
+ADDED_HERE = {"ATTRIBUTION.md", "LICENSE"}
+
+
+def git(*args: str, cwd: Path) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def checkout(name: str, repo: str, ref: str, paths: list[str]) -> Path:
+    """Sparse, blobless checkout of `paths` from `repo` at `ref`."""
+    d = CACHE / name
+    if not (d / ".git").exists():
+        d.mkdir(parents=True, exist_ok=True)
+        git("init", "-q", cwd=d)
+        git("remote", "add", "origin", f"https://github.com/{repo}.git", cwd=d)
+        git("config", "core.sparseCheckout", "true", cwd=d)
+    git("sparse-checkout", "set", "--no-cone", *paths, cwd=d)
+    git("fetch", "-q", "--depth", "1", "--filter=blob:none", "origin", ref, cwd=d)
+    git("checkout", "-q", "--detach", "FETCH_HEAD", cwd=d)
+    return d
+
+
+def differences(local: Path, upstream: Path) -> list[str]:
+    out: list[str] = []
+    if not upstream.is_dir():
+        return ["<missing upstream>"]
+    local_files = {p.relative_to(local) for p in local.rglob("*") if p.is_file()}
+    up_files = {p.relative_to(upstream) for p in upstream.rglob("*") if p.is_file()}
+    for rel in sorted(local_files | up_files):
+        if rel.name in ADDED_HERE and rel not in up_files:
+            continue
+        if str(rel) == "agents/openai.yaml" and rel not in up_files:
+            continue
+        if rel not in up_files:
+            out.append(f"+{rel}")
+        elif rel not in local_files:
+            out.append(f"-{rel}")
+        elif not filecmp.cmp(local / rel, upstream / rel, shallow=False):
+            out.append(f"~{rel}")
+    return out
+
+
+def main() -> int:
+    mode = sys.argv[1] if len(sys.argv) > 1 else "diff"
+    if mode not in {"diff", "outdated"}:
+        print(__doc__)
+        return 2
+    lock = json.loads(LOCK.read_text())
+    by_source: dict[str, list[str]] = {}
+    for name, entry in lock["skills"].items():
+        by_source.setdefault(entry["source"], []).append(name)
+
+    failures = 0
+    for source, names in sorted(by_source.items()):
+        src = lock["sources"][source]
+        paths = [lock["skills"][n]["path"] for n in names]
+        pinned = checkout(f"{source}-pinned", src["repo"], src["commit"], paths)
+        if mode == "outdated":
+            latest = checkout(f"{source}-latest", src["repo"], "HEAD", paths)
+            head = git("rev-parse", "HEAD", cwd=latest)
+            print(f"{source}: pinned {src['commit'][:9]}, upstream {head[:9]}")
+        for name in sorted(names):
+            entry = lock["skills"][name]
+            if mode == "diff":
+                diffs = differences(SKILLS / name, pinned / entry["path"])
+                edited = "localEdit" in entry
+                if diffs and not edited:
+                    print(f"FAIL  {name}: differs from pinned upstream without a localEdit note: {diffs}")
+                    failures += 1
+                elif edited and not diffs:
+                    print(f"FAIL  {name}: localEdit recorded but identical to pinned upstream")
+                    failures += 1
+                else:
+                    print(f"ok    {name}{'  (local edit: ' + ', '.join(diffs) + ')' if diffs else ''}")
+            else:
+                changed = differences(pinned / entry["path"], latest / entry["path"])
+                if changed:
+                    print(f"  update  {name}: {changed}")
+    if mode == "diff":
+        print("ok" if not failures else f"{failures} failure(s)")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
