@@ -47,3 +47,4 @@ brew "coreutils"
 # ---- Casks (GUI apps) ----
 cask "ghostty"      # terminal
 cask "cursor"       # editor (EDITOR=cursor --wait in zshrc)
+cask "maccy"        # clipboard history (Shift+Cmd+C)
