@@ -35,7 +35,9 @@ link_file() {
   fi
 
   if [ -e "$tgt" ] || [ -L "$tgt" ]; then
-    local bak="$DOTFILES_BACKUP_DIR/$(basename "$tgt")"
+    # Keep the path under $HOME so two targets with one basename (the same
+    # skill in two agents' dirs) do not collide in the backup.
+    local bak="$DOTFILES_BACKUP_DIR/${tgt#"$HOME"/}"
     mkdir -p "$(dirname "$bak")"
     mv "$tgt" "$bak"
     printf '  [bak]  %s  →  %s\n' "$tgt" "$bak"
