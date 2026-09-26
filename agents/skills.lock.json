@@ -1,6 +1,11 @@
 {
   "version": 1,
   "sources": {
+    "mattpocock": {
+      "repo": "mattpocock/skills",
+      "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "license": "MIT"
+    },
     "pstack": {
       "repo": "cursor/plugins",
       "commit": "ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
@@ -17,9 +22,83 @@
       "source": "caveman",
       "path": "skills/caveman-commit"
     },
+    "code-review": {
+      "source": "mattpocock",
+      "path": "skills/engineering/code-review"
+    },
+    "codebase-design": {
+      "source": "mattpocock",
+      "path": "skills/engineering/codebase-design"
+    },
+    "diagnosing-bugs": {
+      "source": "mattpocock",
+      "path": "skills/engineering/diagnosing-bugs"
+    },
+    "domain-modeling": {
+      "source": "mattpocock",
+      "path": "skills/engineering/domain-modeling"
+    },
+    "grill-with-docs": {
+      "source": "mattpocock",
+      "path": "skills/engineering/grill-with-docs"
+    },
+    "grilling": {
+      "source": "mattpocock",
+      "path": "skills/productivity/grilling"
+    },
+    "handoff": {
+      "source": "mattpocock",
+      "path": "skills/productivity/handoff",
+      "localEdit": "Adds a durability step first: stop at a safe boundary, commit outstanding edits as one wip: commit staging named files, no irreversible action, state what is on disk."
+    },
+    "implement": {
+      "source": "mattpocock",
+      "path": "skills/engineering/implement"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock",
+      "path": "skills/engineering/improve-codebase-architecture"
+    },
+    "prototype": {
+      "source": "mattpocock",
+      "path": "skills/engineering/prototype"
+    },
+    "research": {
+      "source": "mattpocock",
+      "path": "skills/engineering/research"
+    },
+    "resolving-merge-conflicts": {
+      "source": "mattpocock",
+      "path": "skills/engineering/resolving-merge-conflicts",
+      "localEdit": "Step 3 allows --abort when the merge's premise is wrong. Step 5 stages conflicted files by name and halts on untracked .env, *.key, *.pem."
+    },
+    "setup-matt-pocock-skills": {
+      "source": "mattpocock",
+      "path": "skills/engineering/setup-matt-pocock-skills"
+    },
+    "tdd": {
+      "source": "mattpocock",
+      "path": "skills/engineering/tdd"
+    },
+    "teach": {
+      "source": "mattpocock",
+      "path": "skills/productivity/teach"
+    },
     "unslop": {
       "source": "pstack",
       "path": "pstack/skills/unslop"
+    },
+    "wait-what": {
+      "source": "mattpocock",
+      "path": "skills/productivity/wait-what"
+    },
+    "wizard": {
+      "source": "mattpocock",
+      "path": "skills/engineering/wizard"
+    },
+    "writing-for-agents": {
+      "source": "mattpocock",
+      "path": "skills/productivity/writing-for-agents"
     }
   }
 }
