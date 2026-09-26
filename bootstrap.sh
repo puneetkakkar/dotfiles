@@ -130,6 +130,7 @@ link_dotfile ".claude/hooks/notification.sh"
 link_dotfile ".claude/hooks/stop.sh"
 link_dotfile ".claude/hooks/block-dangerous-git.sh"
 link_dotfile ".claude/skills/caveman-commit"
+link_dotfile ".claude/skills/unslop"
 
 # .local/bin/
 link_dotfile ".local/bin/claude-agent"
