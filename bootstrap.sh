@@ -121,8 +121,9 @@ link_dotfile ".config/bat/config"
 link_dotfile ".config/ccstatusline/settings.json"
 link_dotfile ".config/direnv/direnv.toml"
 
-# .claude/ (settings, hooks, statusline scripts — runtime state stays local)
+# .claude/ (settings, global CLAUDE.md, hooks, statusline scripts — runtime state stays local)
 link_dotfile ".claude/settings.json"
+link_dotfile ".claude/CLAUDE.md"
 link_dotfile ".claude/statusline-command.sh"
 link_dotfile ".claude/statusline-wrapper.sh"
 link_dotfile ".claude/hooks/notification.sh"
