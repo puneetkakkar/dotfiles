@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""Validate the agent-neutral skill and instruction setup.
+
+Usage:
+  scripts/check-agents            # repo checks + installed-link checks
+  scripts/check-agents --repo     # repo checks only (no $HOME inspection)
+
+Repo checks (agents/):
+  - AGENTS.md exists
+  - every skill has SKILL.md whose `name` matches its folder and a description
+  - invocation parity: Claude's `disable-model-invocation: true` if and only if
+    Codex's agents/openai.yaml sets `allow_implicit_invocation: false`
+  - no Cursor-only paths (`.cursor/`) left in any skill file
+  - every operative skill dependency names a skill that exists and that the
+    model can reach (a manual skill cannot be called by another skill)
+  - agents/skills.lock.json and the skills folder list the same skills
+
+Link checks ($HOME):
+  - every skill is linked into each agent's user skills dir, resolving into
+    this repo; agent dirs for agents that are not installed are skipped
+  - no link in those dirs points into this repo at a skill that is gone
+  - AGENTS.md is linked at each installed agent's global instructions path
+
+Exits non-zero on any failure. Stdlib only.
+"""
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+AGENTS = REPO / "agents"
+SKILLS = AGENTS / "skills"
+HOME = Path(os.environ.get("HOME", "~")).expanduser()
+
+# (skills dir, installed-if-this-exists). None = always expected.
+SKILL_TARGETS = [
+    (HOME / ".claude/skills", None),
+    (HOME / ".agents/skills", None),
+    (HOME / ".cursor/skills", HOME / ".cursor"),
+    (HOME / ".gemini/skills", HOME / ".gemini"),
+    (HOME / ".config/opencode/skills", HOME / ".config/opencode"),
+]
+# (instructions path, installed-if-this-exists)
+INSTRUCTION_TARGETS = [
+    (HOME / ".claude/CLAUDE.md", None),
+    (HOME / ".codex/AGENTS.md", None),
+    (HOME / ".gemini/GEMINI.md", HOME / ".gemini"),
+    (HOME / ".config/opencode/AGENTS.md", HOME / ".config/opencode"),
+]
+
+failures: list[str] = []
+
+
+def fail(msg: str) -> None:
+    failures.append(msg)
+
+
+def frontmatter(path: Path) -> dict[str, str]:
+    text = path.read_text()
+    m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+    if not m:
+        return {}
+    fields: dict[str, str] = {}
+    key = None
+    for line in m.group(1).splitlines():
+        km = re.match(r"^([A-Za-z_-]+):\s*(.*)$", line)
+        if km:
+            key = km.group(1)
+            fields[key] = km.group(2).strip().strip('"')
+        elif key and line.startswith(" "):
+            fields[key] = (fields[key] + " " + line.strip()).strip()
+    return fields
+
+
+def is_manual(skill: Path) -> bool:
+    return frontmatter(skill / "SKILL.md").get("disable-model-invocation") == "true"
+
+
+def codex_manual(skill: Path) -> bool:
+    y = skill / "agents/openai.yaml"
+    return y.exists() and re.search(
+        r"^\s*allow_implicit_invocation:\s*false\s*$", y.read_text(), re.M
+    ) is not None
+
+
+# Operative dependency phrasings used by the vendored skills.
+DEP_PATTERNS = [
+    re.compile(r'Call the Skill tool (?:with|twice, for|for) ((?:"[a-z0-9-]+"(?:,? (?:and )?)?)+)'),
+    re.compile(r"Apply the \*\*([a-z0-9-]+)\*\* principle skill"),
+]
+
+
+def dependencies(skill: Path) -> set[str]:
+    deps: set[str] = set()
+    for f in skill.rglob("*.md"):
+        text = f.read_text()
+        for pat in DEP_PATTERNS:
+            for m in pat.finditer(text):
+                names = re.findall(r'"([a-z0-9-]+)"', m.group(1)) or [m.group(1)]
+                for n in names:
+                    deps.add(n if pat is DEP_PATTERNS[0] else f"principle-{n}")
+    return deps
+
+
+def check_repo() -> list[Path]:
+    if not (AGENTS / "AGENTS.md").is_file():
+        fail("agents/AGENTS.md missing")
+    if not SKILLS.is_dir():
+        fail("agents/skills/ missing")
+        return []
+    skills = sorted(p for p in SKILLS.iterdir() if p.is_dir())
+    names = {s.name for s in skills}
+
+    for s in skills:
+        md = s / "SKILL.md"
+        if not md.is_file():
+            fail(f"{s.name}: SKILL.md missing")
+            continue
+        fm = frontmatter(md)
+        if fm.get("name") != s.name:
+            fail(f"{s.name}: frontmatter name is {fm.get('name')!r}")
+        if not fm.get("description"):
+            fail(f"{s.name}: description empty")
+        if is_manual(s) != codex_manual(s):
+            fail(
+                f"{s.name}: invocation mismatch (claude manual={is_manual(s)}, "
+                f"codex manual={codex_manual(s)})"
+            )
+        for f in s.rglob("*"):
+            if f.is_file() and f.suffix in {".md", ".sh", ".yaml"} and f.name != "ATTRIBUTION.md":
+                if ".cursor/" in f.read_text():
+                    fail(f"{s.name}: Cursor-only path in {f.relative_to(s)}")
+        for dep in sorted(dependencies(s)):
+            if dep not in names:
+                fail(f"{s.name}: depends on missing skill {dep!r}")
+            elif is_manual(SKILLS / dep):
+                fail(f"{s.name}: depends on manual skill {dep!r}, which no skill can call")
+
+    lock = AGENTS / "skills.lock.json"
+    if not lock.is_file():
+        fail("agents/skills.lock.json missing")
+    else:
+        locked = set(json.loads(lock.read_text()).get("skills", {}))
+        for n in sorted(names - locked):
+            fail(f"{n}: not in skills.lock.json")
+        for n in sorted(locked - names):
+            fail(f"{n}: in skills.lock.json but no folder")
+    return skills
+
+
+def installed(marker: Path | None) -> bool:
+    return marker is None or marker.exists()
+
+
+def check_links(skills: list[Path]) -> None:
+    for target, marker in SKILL_TARGETS:
+        if not installed(marker):
+            continue
+        for s in skills:
+            link = target / s.name
+            if not link.is_symlink():
+                fail(f"{link}: not a symlink")
+            elif link.resolve() != s.resolve():
+                fail(f"{link}: points to {os.readlink(link)}")
+        if target.is_dir():
+            for entry in target.iterdir():
+                if entry.is_symlink() and str(REPO) in os.readlink(entry) and not entry.exists():
+                    fail(f"{entry}: dangling link into repo")
+    for target, marker in INSTRUCTION_TARGETS:
+        if not installed(marker):
+            continue
+        if not target.is_symlink() or target.resolve() != (AGENTS / "AGENTS.md").resolve():
+            fail(f"{target}: not linked to agents/AGENTS.md")
+
+
+def main() -> int:
+    skills = check_repo()
+    if "--repo" not in sys.argv:
+        check_links(skills)
+    manual = sum(is_manual(s) for s in skills)
+    for f in failures:
+        print(f"FAIL  {f}")
+    status = "ok" if not failures else f"{len(failures)} failure(s)"
+    print(f"{status}: {len(skills)} skills ({len(skills) - manual} model-invoked, {manual} manual)")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

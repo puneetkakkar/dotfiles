@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "sources": {
+    "pstack": {
+      "repo": "cursor/plugins",
+      "commit": "ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
+      "license": "MIT"
+    },
+    "caveman": {
+      "repo": "JuliusBrussee/caveman",
+      "commit": "2fd153c67988e980fb0b2455c90832159a6a5a25",
+      "license": "MIT (skills part of a split licence)"
+    }
+  },
+  "skills": {
+    "caveman-commit": {
+      "source": "caveman",
+      "path": "skills/caveman-commit"
+    },
+    "unslop": {
+      "source": "pstack",
+      "path": "pstack/skills/unslop"
+    }
+  }
+}

@@ -8,17 +8,17 @@
 
 ## Git commits and PRs
 
-- **No AI attribution anywhere.** The `attribution` setting disables automatic attribution; this rule covers what that setting cannot reach. Never write AI or Anthropic attribution into a commit message, PR title, or PR body by hand, and strip any "🤖 Generated with [Claude Code]" footer that a repo's own PR template supplies before opening.
+- **No AI attribution anywhere.** Each agent's own settings disable automatic attribution (Claude Code: `attribution` in `.claude/settings.json`); this rule covers what settings cannot reach. Never write AI, model, or vendor attribution into a commit message, PR title, or PR body by hand, and strip any "Generated with ..." footer that a repo's own PR template supplies before opening.
 
 ### Commit message style: caveman-commit by default
 
-Apply the `~/.claude/skills/caveman-commit` rules to every commit, without waiting for the user to type `/caveman-commit`. Key rules (full spec in the skill file):
+Apply the `caveman-commit` skill's rules to every commit, without waiting for the user to invoke it. Key rules (full spec in the skill file):
 
 - **Subject.** `<type>(<scope>): <imperative summary>`, Conventional Commits, ≤50 chars when possible, hard cap 72, no trailing period.
 - **Types.** `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `build`, `ci`, `style`, `revert`.
 - **Body.** Skip entirely when the subject is self-explanatory. Add a body only for non-obvious *why*, breaking changes, migration notes, or linked issues. Wrap at 72 chars. Bullets `-` not `*`.
 - **Imperative mood.** "add", "fix", "remove", never "added", "adds", "adding".
-- **Never include:** "This commit does X", "I"/"we"/"now"/"currently" filler, "As requested by ..." (use a `Co-authored-by:` trailer for real co-authors only, never for Claude), emoji unless the project explicitly uses them, restating the filename when `<scope>` already says it.
+- **Never include:** "This commit does X", "I"/"we"/"now"/"currently" filler, "As requested by ..." (use a `Co-authored-by:` trailer for real co-authors only, never for an AI agent), emoji unless the project explicitly uses them, restating the filename when `<scope>` already says it.
 - **Always include a body for:** breaking changes (`type!: ...`), security fixes, data migrations, reverts.
 - **Per-project trailers** (e.g. a ticket or slice tag a given repo requires) take precedence and append to the subject.
 

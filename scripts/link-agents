@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Re-link agents/ (AGENTS.md + skills) into every coding agent's user dirs.
+# Run after pulling, or after adding, removing, or renaming a skill.
+# bootstrap.sh does the same as one of its steps.
+set -euo pipefail
+DOTFILES_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export DOTFILES_REPO
+source "$DOTFILES_REPO/lib/symlink.sh"
+source "$DOTFILES_REPO/lib/agents.sh"
+link_agents
+"$DOTFILES_REPO/scripts/check-agents"

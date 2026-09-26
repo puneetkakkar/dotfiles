@@ -17,6 +17,8 @@ export DOTFILES_REPO
 
 # shellcheck source=lib/symlink.sh
 source "$DOTFILES_REPO/lib/symlink.sh"
+# shellcheck source=lib/agents.sh
+source "$DOTFILES_REPO/lib/agents.sh"
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 
@@ -121,16 +123,16 @@ link_dotfile ".config/bat/config"
 link_dotfile ".config/ccstatusline/settings.json"
 link_dotfile ".config/direnv/direnv.toml"
 
-# .claude/ (settings, global CLAUDE.md, hooks, statusline scripts, skills — runtime state stays local)
+# .claude/ (Claude-only: settings, hooks, statusline scripts — runtime state stays local)
 link_dotfile ".claude/settings.json"
-link_dotfile ".claude/CLAUDE.md"
 link_dotfile ".claude/statusline-command.sh"
 link_dotfile ".claude/statusline-wrapper.sh"
 link_dotfile ".claude/hooks/notification.sh"
 link_dotfile ".claude/hooks/stop.sh"
 link_dotfile ".claude/hooks/block-dangerous-git.sh"
-link_dotfile ".claude/skills/caveman-commit"
-link_dotfile ".claude/skills/unslop"
+
+# agents/ (every coding agent: global AGENTS.md + skills)
+link_agents
 
 # .local/bin/
 link_dotfile ".local/bin/claude-agent"
