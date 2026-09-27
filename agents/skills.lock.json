@@ -90,6 +90,9 @@
       "source": "mattpocock",
       "path": "skills/engineering/setup-matt-pocock-skills"
     },
+    "setup-repo-agents": {
+      "source": "local"
+    },
     "tdd": {
       "source": "mattpocock",
       "path": "skills/engineering/tdd"

@@ -10,7 +10,8 @@ Repo checks (agents/):
   - every skill has SKILL.md whose `name` matches its folder and a description
   - invocation parity: Claude's `disable-model-invocation: true` if and only if
     Codex's agents/openai.yaml sets `allow_implicit_invocation: false`
-  - no Cursor-only paths (`.cursor/`) left in any skill file
+  - no Cursor-only paths (`.cursor/`) left in a vendored skill (skills with
+    lock source "local" are exempt: they may name those paths on purpose)
   - every operative skill dependency names a skill that exists and that the
     model can reach (a manual skill cannot be called by another skill)
   - agents/skills.lock.json and the skills folder list the same skills
@@ -104,6 +105,13 @@ def dependencies(skill: Path) -> set[str]:
     return deps
 
 
+def lock_sources() -> dict[str, str]:
+    lock = AGENTS / "skills.lock.json"
+    if not lock.is_file():
+        return {}
+    return {n: e.get("source", "") for n, e in json.loads(lock.read_text()).get("skills", {}).items()}
+
+
 def check_repo() -> list[Path]:
     if not (AGENTS / "AGENTS.md").is_file():
         fail("agents/AGENTS.md missing")
@@ -112,6 +120,7 @@ def check_repo() -> list[Path]:
         return []
     skills = sorted(p for p in SKILLS.iterdir() if p.is_dir())
     names = {s.name for s in skills}
+    sources = lock_sources()
 
     for s in skills:
         md = s / "SKILL.md"
@@ -128,7 +137,7 @@ def check_repo() -> list[Path]:
                 f"{s.name}: invocation mismatch (claude manual={is_manual(s)}, "
                 f"codex manual={codex_manual(s)})"
             )
-        for f in s.rglob("*"):
+        for f in s.rglob("*") if sources.get(s.name) != "local" else []:
             if f.is_file() and f.suffix in {".md", ".sh", ".yaml"} and f.name != "ATTRIBUTION.md":
                 if ".cursor/" in f.read_text():
                     fail(f"{s.name}: Cursor-only path in {f.relative_to(s)}")

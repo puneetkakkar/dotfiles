@@ -1,0 +1,5 @@
+interface:
+  display_name: "Setup Repo Agents"
+  short_description: "Give a repo one AGENTS.md and .agents/skills for every agent"
+policy:
+  allow_implicit_invocation: false

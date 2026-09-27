@@ -11,6 +11,8 @@ the check that every local edit is recorded. Files this repo adds beside a
 skill (ATTRIBUTION.md, LICENSE, and agents/openai.yaml where upstream has
 none) are not counted as edits.
 
+Skills with `"source": "local"` were written in this repo and are skipped.
+
 `outdated` lists skills whose upstream changed since the pinned commit. To take
 an update: copy the new upstream folder over agents/skills/<name>, re-apply
 the recorded localEdit, bump the source commit, and run `diff` again.
@@ -79,6 +81,8 @@ def main() -> int:
     lock = json.loads(LOCK.read_text())
     by_source: dict[str, list[str]] = {}
     for name, entry in lock["skills"].items():
+        if entry["source"] == "local":  # written in this repo; no upstream to compare
+            continue
         by_source.setdefault(entry["source"], []).append(name)
 
     failures = 0

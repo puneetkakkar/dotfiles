@@ -104,15 +104,33 @@ To add a skill: copy its folder into `agents/skills/`, add an
 `agents/openai.yaml` if upstream has none, add it to `skills.lock.json`, then
 run `scripts/link-agents`.
 
-A skill that belongs to one repo goes in that repo's `.agents/skills/`, the
-project dir most agents read. Claude Code reads only `.claude/skills/`, so add
-a `.claude/skills` symlink to `../.agents/skills` in that repo.
+### Per-repo setup
+
+Run `/setup-repo-agents` (Claude) or `$setup-repo-agents` (Codex) in any repo.
+It migrates whatever agent files the repo has into one layout every agent
+reads, on top of this global setup:
+
+| Path | Purpose |
+|---|---|
+| `AGENTS.md` | repo instructions; Claude reads it natively when there is no `CLAUDE.md` |
+| `.agents/skills/<repo-prefixed-name>/` | skills the repo owns |
+| `.claude/skills -> ../.agents/skills` | Claude Code reads only `.claude/skills` |
+| `docs/agents/` | long reference `AGENTS.md` points to |
+
+Repo instructions add to the global ones; they do not replace them. Repo skills
+need a repo or domain prefix: when a repo skill shares a global skill's name,
+Claude runs the global one.
+
+Check any repo with
+`~/.claude/skills/setup-repo-agents/scripts/check-repo.py [repo]`
+(`--no-global` in CI).
 
 ### Tests
 
 | Command | Checks |
 |---|---|
 | `tests/test-check-agents.sh` | `check-agents` catches each class of breakage it claims to |
+| `tests/test-check-repo.sh` | the per-repo checker passes correct repos and catches each breakage |
 | `tests/test-link-agents.sh` | linking in throwaway `$HOME`s: fresh machine, re-run, backups, pruning, optional agents |
 | `tests/test-git-guardrail.sh` | `block-dangerous-git.sh` blocks and allows the right commands |
 | `tests/live-claude.sh` | real `claude -p` sessions: what the model sees, `AGENTS.md` loaded, `paths` skills fire (costs a few model calls) |
