@@ -24,7 +24,6 @@ DANGEROUS_PATTERNS=(
   'git[[:space:]]+reset[[:space:]]+(--hard|--merge)'
   'git[[:space:]]+clean[[:space:]]+-[a-z]*f'
   'git[[:space:]]+checkout[[:space:]]+(--[[:space:]]+)?\.'
-  'git[[:space:]]+restore[[:space:]]+(--[a-z]+[[:space:]]+)*\.'
   'git[[:space:]]+stash[[:space:]]+(clear|drop)'
   # Destroys unmerged branches
   'git[[:space:]]+branch[[:space:]]+-[a-zA-Z]*D'
@@ -36,13 +35,38 @@ DANGEROUS_PATTERNS=(
   'git[[:space:]]+gc[[:space:]]+.*--prune=now'
 )
 
+block() {
+  printf 'BLOCKED: %s\n' "$COMMAND" >&2
+  printf 'Matched guard pattern: %s\n' "$1" >&2
+  printf 'The user has blocked this command. Ask them to run it themselves if it is genuinely needed.\n' >&2
+  exit 2
+}
+
 for pattern in "${DANGEROUS_PATTERNS[@]}"; do
   if printf '%s' "$COMMAND" | grep -qE "${ANCHOR}${pattern}"; then
-    printf 'BLOCKED: %s\n' "$COMMAND" >&2
-    printf 'Matched guard pattern: %s\n' "$pattern" >&2
-    printf 'The user has blocked this command. Ask them to run it themselves if it is genuinely needed.\n' >&2
-    exit 2
+    block "$pattern"
   fi
 done
+
+# `git restore .` overwrites the whole working tree, but `git restore --staged .`
+# only unstages. A regex cannot express "has -S and not -W", so check each
+# whole-tree restore by its flags: it is safe only when it targets the index
+# alone (--staged/-S, no --worktree/-W).
+while IFS= read -r restore; do
+  flags=" ${restore#*restore} "
+  case "$flags" in *" . "*) ;; *) continue ;; esac
+  staged=0 worktree=0
+  for f in $flags; do
+    case "$f" in
+      --staged) staged=1 ;;
+      --worktree) worktree=1 ;;
+      --*) ;;
+      -*) [[ "$f" == *S* ]] && staged=1; [[ "$f" == *W* ]] && worktree=1 ;;
+    esac
+  done
+  if [ "$staged" -eq 0 ] || [ "$worktree" -eq 1 ]; then
+    block 'git restore . (touches the working tree)'
+  fi
+done < <(printf '%s' "$COMMAND" | grep -oE "${ANCHOR}git[[:space:]]+restore[^;&|]*")
 
 exit 0
