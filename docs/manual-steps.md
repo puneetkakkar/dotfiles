@@ -64,6 +64,18 @@ Open a terminal, run `claude`, then inside the TUI:
 
 Follow the OAuth prompts in the browser.
 
+Codex (optional, if you use it on this machine):
+
+```bash
+brew install --cask codex
+codex login        # sign in with your ChatGPT account
+```
+
+Skills and `AGENTS.md` need nothing more: bootstrap already linked them into
+`~/.agents/skills` and `~/.codex/AGENTS.md`. Other agents that follow the
+Agent Skills layout pick up the skills once installed; run
+`scripts/link-agents` after installing one so its dirs get linked.
+
 ## 4. Tmux plugins (resurrect + continuum)
 
 Open tmux and press `prefix I` (capital I) to install plugins via TPM.

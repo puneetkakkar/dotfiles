@@ -59,13 +59,63 @@ a recoverable copy of every file replaced.
 - `.config/`: `tmux/` (theme + start script), `btop/`, `bat/`, `ccstatusline/`,
   `direnv/`
 - `.claude/`: `settings.json`, statusline scripts, hooks (`notification.sh`,
-  `stop.sh`, `block-dangerous-git.sh`)
+  `stop.sh`, `block-dangerous-git.sh`). Claude-only settings live here.
+- `agents/`: global instructions and skills for every coding agent (see
+  [Coding agents](#coding-agents-agents))
 - `.local/bin/`: `claude-agent`, `claude-agent-launcher`, `claude-agent-pick`,
   `claude-agent-rename`, `claude-worktree-status`, `tmux-thumbs-pick`,
   `install-git-hooks-here`
 - Git commit-message enforcement ("caveman-commit"): `.config/git/template/hooks/commit-msg`
   (auto-installs into new repos via `init.templateDir`) and `.config/husky/init.sh`
   (same validation for husky-managed repos, paired with `install-git-hooks-here`)
+
+## Coding agents (`agents/`)
+
+One agent-neutral source serves Claude Code, Codex, and any agent that reads
+the Agent Skills `SKILL.md` format.
+
+| Path | Linked to |
+|---|---|
+| `agents/AGENTS.md` | `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, plus `~/.gemini/GEMINI.md` and `~/.config/opencode/AGENTS.md` when those agents are installed |
+| `agents/skills/<name>/` | `~/.claude/skills/<name>`, `~/.agents/skills/<name>` (Codex), plus `~/.cursor/skills`, `~/.gemini/skills` and `~/.config/opencode/skills` when installed |
+
+Bootstrap links each skill on its own, so other entries in those dirs (such as
+`~/.claude/skills/synced` from the claude.ai account) stay put. It also removes
+links to skills that no longer exist in the repo.
+
+Each skill is either **model-invoked** (the agent may load it on its own) or
+**manual** (only the user can run it, as `/name` in Claude or `$name` in
+Codex). Claude reads `disable-model-invocation: true` in `SKILL.md`; Codex
+reads `policy.allow_implicit_invocation: false` in `agents/openai.yaml`.
+`scripts/check-agents` fails if the two disagree.
+
+Skills are vendored from upstream at pinned commits. `agents/skills.lock.json`
+records each skill's repo, path and commit, and `agents/ATTRIBUTION.md` records
+every local edit and why.
+
+| Command | Use |
+|---|---|
+| `scripts/link-agents` | Re-link after a pull, or after adding, removing or renaming a skill |
+| `scripts/check-agents` | Validate structure, invocation parity, dependencies and links |
+| `scripts/skills-upstream outdated` | List skills whose upstream changed since the pinned commit |
+| `scripts/skills-upstream diff` | Confirm every difference from upstream is a recorded edit |
+
+To add a skill: copy its folder into `agents/skills/`, add an
+`agents/openai.yaml` if upstream has none, add it to `skills.lock.json`, then
+run `scripts/link-agents`.
+
+A skill that belongs to one repo goes in that repo's `.agents/skills/`, the
+project dir most agents read. Claude Code reads only `.claude/skills/`, so add
+a `.claude/skills` symlink to `../.agents/skills` in that repo.
+
+### Tests
+
+| Command | Checks |
+|---|---|
+| `tests/test-check-agents.sh` | `check-agents` catches each class of breakage it claims to |
+| `tests/test-link-agents.sh` | linking in throwaway `$HOME`s: fresh machine, re-run, backups, pruning, optional agents |
+| `tests/test-git-guardrail.sh` | `block-dangerous-git.sh` blocks and allows the right commands |
+| `tests/live-claude.sh` | real `claude -p` sessions: what the model sees, `AGENTS.md` loaded, `paths` skills fire (costs a few model calls) |
 
 ## What's preserved but NOT deployed
 
@@ -106,4 +156,5 @@ The repo is the source of truth. After bootstrap, every file in `$HOME`
 that's deployed is a symlink into this repo. Edit through the symlink
 (or directly in the repo) and `git commit && git push` like any other
 project. The other Mac picks it up via `git pull && ./bootstrap.sh`
-(re-running bootstrap is fine; no-op for already-correct symlinks).
+(re-running bootstrap is fine; no-op for already-correct symlinks). For a
+change under `agents/` only, `git pull && scripts/link-agents` is enough.
