@@ -116,6 +116,7 @@ a `.claude/skills` symlink to `../.agents/skills` in that repo.
 | `tests/test-link-agents.sh` | linking in throwaway `$HOME`s: fresh machine, re-run, backups, pruning, optional agents |
 | `tests/test-git-guardrail.sh` | `block-dangerous-git.sh` blocks and allows the right commands |
 | `tests/live-claude.sh` | real `claude -p` sessions: what the model sees, `AGENTS.md` loaded, `paths` skills fire (costs a few model calls) |
+| `tests/test-codex.py` | installed Codex: every skill loads from the repo, `openai.yaml` parsed, model sees only model-invoked skills, `AGENTS.md` loaded (no login, no model calls) |
 
 ## What's preserved but NOT deployed
 
