@@ -287,4 +287,4 @@ wt() {
   [ -f "$dir/.envrc" ] && (cd "$dir" && direnv allow .)
   cd "$dir"
 }
-eval "$(rbenv init - zsh)"
+command -v rbenv >/dev/null && eval "$(rbenv init - zsh)"
