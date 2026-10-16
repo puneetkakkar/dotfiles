@@ -1,5 +1,15 @@
 #!/bin/bash
-# claude-agent <label> [cwd-or-repo-path]
+# claude-agent [--prompt-file <path>] [--remote-control] <label> [cwd-or-repo-path]
+#
+# --prompt-file starts claude with the file's contents as its first prompt,
+# passed as the positional argument rather than typed into the pane. Typing a
+# long prompt with `tmux send-keys` lands as a collapsed paste, and claude
+# often receives only its tail. The file is copied first, so the caller may
+# delete it once this returns.
+#
+# --remote-control starts claude with Remote Control on, named after <label>,
+# so the session can be driven from the Claude mobile app. Off by default; a
+# running session can still opt in later with /remote-control.
 #
 # Spawns a worktree + tmux window for the given label, with `claude` running
 # in the top pane. Bound to `prefix A` via the fzf picker (claude-agent-pick).
@@ -25,8 +35,30 @@ set -e
 [ -f "$HOME/.config/dotfiles/local.env" ] && source "$HOME/.config/dotfiles/local.env"
 WORKTREES_DIR="${WORKTREES_DIR:-$HOME/Worktrees}"
 
-label="${1:?usage: claude-agent <label> [cwd]}"
+usage="usage: claude-agent [--prompt-file <path>] [--remote-control] <label> [cwd]"
+prompt_file=
+remote_control=
+positional=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --prompt-file)   prompt_file="${2:?$usage}"; shift 2 ;;
+    --prompt-file=*) prompt_file="${1#--prompt-file=}"; shift ;;
+    --remote-control) remote_control=1; shift ;;
+    -*)              echo "claude-agent: unknown option '$1'" >&2; echo "$usage" >&2; exit 2 ;;
+    *)               positional+=("$1"); shift ;;
+  esac
+done
+set -- "${positional[@]}"
+
+label="${1:?$usage}"
 cwd="${2:-$PWD}"
+
+# Check the prompt file before any side effect, so a typo never leaves a
+# worktree behind with an idle claude in it.
+if [ -n "$prompt_file" ] && [ ! -s "$prompt_file" ]; then
+  echo "claude-agent: prompt file '$prompt_file' is missing or empty" >&2
+  exit 1
+fi
 
 # Resolve to the MAIN repo root, even when invoked from inside a worktree.
 # `--show-toplevel` returns the worktree's own path, which would make us derive
@@ -177,12 +209,26 @@ fi
 # ---- Tmux session/window ----------------------------------------------------
 window=$(printf '%s' "$label" | sed -E 's/^(rec|REC)-/r/' | cut -c1-24)
 
+# The copy lives outside the worktree, so it never shows in `git status` and
+# never blocks the [gone]-branch cleanup above.
+claude_cmd="claude"
+if [ -n "$remote_control" ]; then
+  claude_cmd="$claude_cmd --remote-control $(printf '%q' "$label")"
+fi
+if [ -n "$prompt_file" ]; then
+  prompt_dir="${XDG_STATE_HOME:-$HOME/.local/state}/claude-agent/prompts"
+  mkdir -p "$prompt_dir"
+  prompt_copy="$prompt_dir/${label//\//-}-$(date +%Y%m%d-%H%M%S).md"
+  cp "$prompt_file" "$prompt_copy"
+  claude_cmd="$claude_cmd \"\$(cat $(printf '%q' "$prompt_copy"))\""
+fi
+
 setup_panes() {
   local target="$1" wt="$2"
   tmux split-window -t "$target" -v -p 30 -c "$wt"
   tmux split-window -t "${target}".1 -h -c "$wt"
   tmux select-pane -t "${target}".0
-  tmux send-keys -t "${target}".0 "claude" Enter
+  tmux send-keys -t "${target}".0 "$claude_cmd" Enter
 }
 
 # --- Pre-trust the worktree so Claude loads this project's skills ----------
@@ -223,6 +269,8 @@ if ! tmux has-session -t "$repo" 2>/dev/null; then
 elif ! tmux list-windows -t "$repo" -F '#W' | grep -Fxq "$window"; then
   tmux new-window -t "$repo:" -n "$window" -c "$worktree"
   setup_panes "$repo:$window" "$worktree"
+elif [ -n "$prompt_file" ]; then
+  echo "claude-agent: window '$window' already exists, so the prompt was not delivered (kept at $prompt_copy)" >&2
 fi
 # else: window already exists — idempotent re-spawn, just switch.
 

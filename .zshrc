@@ -288,3 +288,5 @@ wt() {
   cd "$dir"
 }
 command -v rbenv >/dev/null && eval "$(rbenv init - zsh)"
+export PATH=$PATH:$HOME/.maestro/bin
+export MAESTRO_CLI_NO_ANALYTICS=1
