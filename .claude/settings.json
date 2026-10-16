@@ -52,5 +52,6 @@
   },
   "tui": "fullscreen",
   "theme": "auto",
-  "verbose": false
+  "verbose": false,
+  "agentPushNotifEnabled": true
 }
